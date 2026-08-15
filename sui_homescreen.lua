@@ -765,6 +765,13 @@ function HomescreenWidget:init()
     local _gz_left_side  = _readZone("DDOUBLE_TAP_ZONE_PREV_CHAPTER")
     local _gz_right_side = _readZone("DDOUBLE_TAP_ZONE_NEXT_CHAPTER")
 
+    local _gz_bottom = {
+        ratio_x = 0.25,
+        ratio_y = 0.75,
+        ratio_w = 0.5,
+        ratio_h = 0.25,
+    }
+
     -- Dispatches a gesture event to the FM gestures plugin (same gesture set
     -- as docless file-manager mode). sendEvent is temporarily redirected to
     -- broadcastEvent so UIManager events reach all listeners.
@@ -792,6 +799,10 @@ function HomescreenWidget:init()
                 if ges_event.distance and ges_event.distance <= short_thresh then
                     n = n + 1; _candidates[n] = "short_diagonal_swipe"
                 end
+
+            elseif _inZone(_gz_bottom, x, y, sw, sh) and dir == "north" then
+                n = n + 1; _candidates[n] = "swipe_up_bottom"
+    
             elseif _inZone(_gz_left_edge, x, y, sw, sh) then
                 if     dir == "south" then n = n + 1; _candidates[n] = "one_finger_swipe_left_edge_down"
                 elseif dir == "north" then n = n + 1; _candidates[n] = "one_finger_swipe_left_edge_up"
@@ -808,6 +819,8 @@ function HomescreenWidget:init()
                 if     dir == "east" then n = n + 1; _candidates[n] = "one_finger_swipe_bottom_edge_right"
                 elseif dir == "west" then n = n + 1; _candidates[n] = "one_finger_swipe_bottom_edge_left"
                 end
+
+            
             end
 
         elseif gt == "tap" then
@@ -1284,6 +1297,8 @@ function HomescreenWidget:init()
                 return false
             end,
         },
+
+    
         {
             id          = "simpleui_hs_footer_swipe",
             ges         = "swipe",
@@ -1311,6 +1326,7 @@ function HomescreenWidget:init()
                 return true
             end,
         },
+        
     })
 
     -- Priority gesture zones for top and bottom strips — these fire before
@@ -1763,9 +1779,12 @@ end
 -- single function knows which module was held (no per-module closure needed).
 -- ---------------------------------------------------------------------------
 function HomescreenWidget:_onHoldModRelease(wrapper)
+
+    --[[
     if not SUISettings:nilOrTrue("simpleui_hs_settings_on_hold") then
         return true
     end
+    ]]
     local mod = wrapper._sui_mod
     local hs  = wrapper._sui_hs
     if not mod or not hs then return true end
@@ -1822,6 +1841,8 @@ function HomescreenWidget:_makeModWrapper(mod, widget, inner_w)
             _sui_hs  = self,
         }
         w.ges_events = {
+
+            --[[
             HoldMod = {
                 GestureRange:new{
                     ges   = "hold",
@@ -1834,14 +1855,42 @@ function HomescreenWidget:_makeModWrapper(mod, widget, inner_w)
                     range = function() return w.dimen end,
                 },
             },
+            ]]
+            DoubleTabMod = {
+                GestureRange:new{
+                    ges   = "two_finger_tap",
+                    range = function() return w.dimen end,
+                },
+            },
         }
+
+
+
+        --[[
         function w:onHoldMod()
-            if not SUISettings:nilOrTrue("simpleui_hs_settings_on_hold") then
-                return
+            if not G_reader_settings:nilOrTrue("navbar_homescreen_settings_on_hold") then
+                return  -- do not consume; hold_release will not fire on this wrapper
             end
             return true
         end
-        function w:onHoldModRelease() return self._sui_hs:_onHoldModRelease(self) end
+        function w:onHoldModRelease() 
+            if not G_reader_settings:nilOrTrue("navbar_homescreen_settings_on_hold") then
+                return true
+            end
+            return self._sui_hs:_onHoldModRelease(self) 
+        end
+
+        ]]
+
+
+
+        function w:onDoubleTabMod() 
+            return self._sui_hs:_onHoldModRelease(self)
+        end
+
+
+
+
         pool[mod.id] = w
     end
     return w

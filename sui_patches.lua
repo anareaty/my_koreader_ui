@@ -13,6 +13,8 @@ local UI        = require("sui_core")
 local Bottombar = require("sui_bottombar")
 local SUISettings = require("sui_store")
 
+
+
 -- Lazy: only needed on D-pad devices, inside gesture event handlers.
 local _FocusManager
 local function FocusManager()
@@ -1444,6 +1446,9 @@ function M.patchUIManagerShow(plugin)
 
         -- Register top-of-screen zones to open the KOReader main menu,
         -- matching what FileManagerMenu:initGesListener does for the FM.
+
+
+ 
         if widget.registerTouchZones then
             local DTAP_ZONE_MENU     = G_defaults:readSetting("DTAP_ZONE_MENU")
             local DTAP_ZONE_MENU_EXT = G_defaults:readSetting("DTAP_ZONE_MENU_EXT")
@@ -1526,7 +1531,19 @@ function M.patchUIManagerShow(plugin)
                     },
                 })
             end
+
+
+
+
+
+
+
+
+
+
         end
+
+      
 
         -- Resize the return button to match the side margin.
         local rb = widget.return_button
@@ -3053,6 +3070,12 @@ function M.injectWallpaperIntoFullscreenWidget(widget)
 end
 
 
+
+
+
+
+
+
 function M.installAll(plugin)
     M.patchPurgeDir(plugin)
     local ok_fm, FileManager = pcall(require, "apps/filemanager/filemanager")
@@ -3367,6 +3390,44 @@ function M.teardownAll(plugin)
         plugin._orig_wp_pw_paintTo = nil
     end
 end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 -- ---------------------------------------------------------------------------
 -- Dispatcher:execute patch
