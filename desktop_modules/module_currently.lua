@@ -101,7 +101,7 @@ local function getCoverGapPct(pfx)
 end
 
 -- Maximum title length in UTF-8 characters before truncation.
-local TITLE_MAX_LEN = 60
+local TITLE_MAX_LEN = 120
 
 -- Caps per-page duration at 120 s when computing avg reading time,
 -- matching KOReader's STATISTICS_SQL_BOOK_CAPPED_TOTALS_QUERY.
@@ -205,6 +205,10 @@ local function fetchBookStats(md5, shared_conn, ctx)
         -- full scan of page_stat on every call.
         -- Relies on idx_simpleui_book_md5 / idx_simpleui_pagestat_book indexes
         -- created by openStatsDB() for O(log n) lookup instead of full-table scan.
+
+
+
+        --[=[
         local row = conn:exec(string.format([[
             WITH b AS (
                 SELECT id FROM book WHERE md5 = %q LIMIT 1
@@ -224,18 +228,44 @@ local function fetchBookStats(md5, shared_conn, ctx)
                 sum(min(page_dur, %d))
             FROM ps_agg;
         ]], md5, _MAX_SEC))
+        ]=]
 
-        if row and row[1] and row[1][1] then
-            local days   = tonumber(row[1][1]) or 0
-            local secs   = tonumber(row[2] and row[2][1]) or 0
-            local pages  = tonumber(row[3] and row[3][1]) or 0
-            local capped = tonumber(row[4] and row[4][1]) or 0
+
+        local smth = conn:prepare([[
+            WITH b AS (
+                SELECT id FROM book WHERE md5 = ? LIMIT 1
+            ),
+            ps_agg AS (
+                SELECT ps.page,
+                       sum(ps.duration)   AS page_dur,
+                       min(ps.start_time) AS first_start
+                FROM page_stat ps
+                WHERE ps.id_book = (SELECT id FROM b)
+                GROUP BY ps.page
+            )
+            SELECT
+                count(DISTINCT date(first_start, 'unixepoch', 'localtime')),
+                sum(page_dur),
+                count(*),
+                sum(min(page_dur, ?))
+            FROM ps_agg;
+        ]])
+
+        smth:reset():bind(md5, _MAX_SEC)
+        local row = smth:step()
+
+        if row and row[1] then
+            local days   = tonumber(row[1]) or 0
+            local secs   = tonumber(row[2]) or 0
+            local pages  = tonumber(row[3]) or 0
+            local capped = tonumber(row[4]) or 0
             result = {
                 days       = days,
                 total_secs = secs,
                 avg_time   = (pages > 0 and capped > 0) and (capped / pages) or nil,
             }
         end
+
     end)
     if not ok then
         logger.warn("simpleui: module_currently: fetchBookStats failed: " .. tostring(err))

@@ -216,6 +216,78 @@ local function countMarkedReadBoth(year_str)
     local books_year  = 0
     local books_total = 0
 
+
+
+
+    -- Извлекаем статистику из плагина bookstatistics
+
+    local DataStorage = require("datastorage")
+    local SQ3 = require("lua-ljsqlite3/init")
+
+    local year = tonumber(year_str)
+
+    local start_year = os.time{year=year, month=1, day=1, hour=0, min=0 }
+    local end_year = os.time{year=year + 1, month=1, day=1, hour=0, min=0 }
+
+    
+    local db_location = DataStorage:getSettingsDir() .. "/bookstatistics.sqlite3"
+    
+    local conn = SQ3.open(db_location)
+
+    local bookstatisticsSettings = G_reader_settings:readSetting("bookstatistics")
+    
+    local ignored_folders = (bookstatisticsSettings and bookstatisticsSettings["ignored_folders"]) or {}
+
+    local clauses = {}
+    for i = 1, #ignored_folders do
+        table.insert(clauses, [[path NOT LIKE ']] .. ignored_folders[i] .. [[%%' ]])
+    end
+
+    local ignored_clause = ""
+    if #clauses > 0 then
+        ignored_clause = [[AND ]] .. table.concat(clauses, [[ AND ]])
+    end
+    
+
+    local yearlyBooks = conn:rowexec(string.format(
+        [[
+            SELECT COUNT(*)
+            FROM book_completed
+            WHERE completed = 1 ]] .. ignored_clause .. [[ AND ignore = 0 AND completed_ts BETWEEN %d AND %d
+        ]], 
+        start_year, 
+        end_year
+    ))
+
+    local totalBooks = conn:rowexec(string.format(
+        [[
+            SELECT COUNT(*)
+            FROM book_completed
+            WHERE completed = 1 AND ignore = 0
+        ]]
+    ))
+
+
+
+
+    if yearlyBooks ~= nil or totalBooks ~= nil then 
+        yearlyBooks = tonumber(yearlyBooks)
+        totalBooks = tonumber(totalBooks)
+        return yearlyBooks, totalBooks
+    end
+
+
+
+
+
+
+
+
+
+
+
+
+
     local ok_DS, DocSettings = pcall(require, "docsettings")
     if not ok_DS then return books_year, books_total end
 

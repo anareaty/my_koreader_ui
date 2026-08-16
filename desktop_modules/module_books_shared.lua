@@ -374,8 +374,10 @@ function SH.getBookCover(filepath, w, h, align, stretch_limit)
 
 
 
+    -- Закругленные обложки
+    
     local border_size = 2
-    local corner_radius = 16
+    local corner_radius = 8
     local corner_icon_size = corner_radius * 2.5
     
     local tl = IconWidget:new{
