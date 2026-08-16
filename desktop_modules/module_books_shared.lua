@@ -75,12 +75,15 @@ end
 -- ---------------------------------------------------------------------------
 local _BASE_COVER_W  = Screen:scaleBySize(122)
 local _BASE_COVER_H  = math.floor(Screen:scaleBySize(122) * 3 / 2)
-local _BASE_RECENT_W = Screen:scaleBySize(75)
-local _BASE_RECENT_H = Screen:scaleBySize(112)
+--local _BASE_RECENT_W = Screen:scaleBySize(75)
+local _BASE_RECENT_W = Screen:scaleBySize(85)
+--local _BASE_RECENT_H = Screen:scaleBySize(112)
+local _BASE_RECENT_H = Screen:scaleBySize(127)
 local _BASE_RB_GAP1    = Screen:scaleBySize(4)
 local _BASE_RB_BAR_H   = Screen:scaleBySize(5)
 local _BASE_RB_GAP2    = Screen:scaleBySize(3)
-local _BASE_RB_LABEL_H = Screen:scaleBySize(14)
+--local _BASE_RB_LABEL_H = Screen:scaleBySize(14)
+local _BASE_RB_LABEL_H = Screen:scaleBySize(0)
 
 -- Flat aliases kept for any call-site that reads SH.COVER_W etc. directly
 -- without going through getDims(). These always reflect 100% scale and are
@@ -132,6 +135,7 @@ function SH.getDims(scale, thumb_scale)
     local bh  = math.max(1, math.floor(_BASE_RB_BAR_H   * scale))
     local g2  = math.max(1, math.floor(_BASE_RB_GAP2    * scale))
     local lh  = math.max(1, math.floor(_BASE_RB_LABEL_H * scale))
+
     -- Cover dims scale with the combined scale (scale × thumb_scale).
     local rh  = math.floor(_BASE_RECENT_H * cs)
     -- RECENT_CELL_H = cover height + bar + gaps + label — each part scaled independently.

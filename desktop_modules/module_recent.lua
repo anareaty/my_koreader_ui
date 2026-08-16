@@ -98,7 +98,7 @@ function M.build(w, ctx)
     local ch      = D.RECENT_H
     -- Space-between across 6 fixed slots with same lateral padding as other modules (PAD).
     local inner_w = w - PAD * 2
-    local gap     = math.floor((inner_w - 6 * cw) / 4)
+    local gap     = math.floor((inner_w - 6 * cw) / 5)
     -- Hoist the face lookup — same args for every cell, no need to call per iteration.
     local pct_face = Font:getFace("smallinfofont", pct_fs)
 
@@ -115,6 +115,7 @@ function M.build(w, ctx)
 
     -- Total tappable cell height.
     local cell_h = use_overlay and (ch + badge_r) or D.RECENT_CELL_H
+
 
     local row = HorizontalGroup:new{ align = "top" }
     local cover_slots = {}
@@ -168,6 +169,9 @@ function M.build(w, ctx)
             cell[#cell+1] = SH.progressBar(cw, bd.percent, D.RB_BAR_H)
         end
 
+
+
+
         if draw_text then
             cell[#cell+1] = SH.vspan(draw_progress and D.RB_GAP2 or D.RB_GAP1, ctx.vspan_pool)
             cell[#cell+1] = UI.makeColoredText{
@@ -179,6 +183,8 @@ function M.build(w, ctx)
                 alignment = "center",
             }
         end
+
+
 
         local tappable = InputContainer:new{
             dimen    = Geom:new{ w = cw, h = cell_h },

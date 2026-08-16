@@ -85,7 +85,7 @@ end
 
 --- Return up to `limit` file paths from home_dir, newest first by mtime.
 local function scanNewBooks(limit)
-    limit = limit or 5
+    limit = limit or 6
     local home = G_reader_settings:readSetting("home_dir")
     if not home then return {} end
 
@@ -145,9 +145,9 @@ function M.build(w, ctx)
             end
         end
         new_fps = filtered
-        if #new_fps > 5 then
+        if #new_fps > 6 then
             local trimmed = {}
-            for i = 1, 5 do trimmed[i] = new_fps[i] end
+            for i = 1, 6 do trimmed[i] = new_fps[i] end
             new_fps = trimmed
         end
         ctx._new_books_fps = new_fps
@@ -166,12 +166,12 @@ function M.build(w, ctx)
     local _theme_secondary = ok_ss and SUIStyle and SUIStyle.getThemeColor("text_secondary")
     local CLR_TEXT_SUB_EFF = _theme_secondary or _theme_fg or CLR_TEXT_SUB
 
-    local cols    = math.min(#new_fps, 5)
+    local cols    = math.min(#new_fps, 6)
     local cw      = D.RECENT_W
     local ch      = D.RECENT_H
-    -- Space-between across 5 fixed slots, same lateral padding as other modules.
+    -- Space-between across 6 fixed slots, same lateral padding as other modules.
     local inner_w = w - PAD * 2
-    local gap     = math.floor((inner_w - 5 * cw) / 4)
+    local gap     = math.floor((inner_w - 6 * cw) / 5)
     local face    = Font:getFace("smallinfofont", label_fs)
 
     local row = HorizontalGroup:new{ align = "top" }

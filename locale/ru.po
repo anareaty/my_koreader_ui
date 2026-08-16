@@ -1110,7 +1110,7 @@ msgstr "Карусель обложек"
 
 #: desktop_modules/module_flow_recent.lua:124
 msgid "To Be Read (Deck)"
-msgstr "Буду читать (Карусель)"
+msgstr "Хочу прочитать (Карусель)"
 
 #: sui_quickactions.lua:815
 #: sui_quickactions.lua:873
@@ -1780,7 +1780,7 @@ msgstr "Если включено, долгое нажатие на нижнюю
 
 #: desktop_modules/module_tbr.lua
 msgid "Arrange To Be Read list"
-msgstr "Упорядочить список «Буду читать»"
+msgstr "Упорядочить список «Хочу прочитать»"
 
 #: desktop_modules/module_tbr.lua
 msgid "Add at least 2 books to arrange."
@@ -1788,23 +1788,23 @@ msgstr "Добавьте минимум 2 книги для сортировки
 
 #: desktop_modules/module_tbr.lua
 msgid "To Be Read books"
-msgstr "Книги «Буду читать»"
+msgstr "Книги «Хочу прочитать»"
 
 #: desktop_modules/module_tbr.lua
 msgid "No books in To Be Read list."
-msgstr "В списке «Буду читать» нет книг."
+msgstr "В списке «Хочу прочитать» нет книг."
 
 #: desktop_modules/module_tbr.lua
 msgid "Add to To Be Read"
-msgstr "Добавить в «Буду читать»"
+msgstr "Добавить в «Хочу прочитать»"
 
 #: desktop_modules/module_tbr.lua
 msgid "Remove from To Be Read"
-msgstr "Удалить из «Буду читать»"
+msgstr "Удалить из «Хочу прочитать»"
 
 #: desktop_modules/module_tbr.lua
 msgid "To Be Read"
-msgstr "Буду читать"
+msgstr "Хочу прочитать"
 
 #: sui_foldercovers.lua sui_menu.lua
 msgid "Group Books by Series"

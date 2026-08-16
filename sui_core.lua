@@ -46,8 +46,11 @@ local _dim = {}
 -- SIDE_PAD         : left/right inset of the homescreen content area
 -- ---------------------------------------------------------------------------
 
-M.PAD           = Screen:scaleBySize(14)
-M.PAD2          = Screen:scaleBySize(8)
+
+--M.PAD           = Screen:scaleBySize(14)
+M.PAD           = Screen:scaleBySize(8)
+--M.PAD2          = Screen:scaleBySize(8)
+M.PAD2          = Screen:scaleBySize(5)
 M.MOD_GAP       = Screen:scaleBySize(23)   -- includes former LABEL_PAD_TOP (8px)
 M.SIDE_PAD      = Screen:scaleBySize(14)
 M.LABEL_PAD_TOP = 0                         -- absorbed into MOD_GAP

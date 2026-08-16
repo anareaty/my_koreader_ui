@@ -331,7 +331,7 @@ function M.build(w, ctx)
     local cw      = D.RECENT_W
     local ch      = D.RECENT_H
     local inner_w = w - PAD * 2
-    local gap     = math.floor((inner_w - 6 * cw) / 4)
+    local gap     = math.floor((inner_w - 6 * cw) / 5)
     local pct_face = Font:getFace("smallinfofont", pct_fs)
 
     local show_progress = showProgress(ctx.pfx)
