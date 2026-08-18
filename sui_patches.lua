@@ -637,6 +637,41 @@ function M.patchFileManagerClass(plugin)
                 end
             end
         end
+
+
+
+
+
+
+
+
+        -- Патч меню книги
+
+
+        fm_self.file_chooser.showFileDialog = function(self, item)
+            local file = item.path
+            
+            local ctx = {
+                type = "filemanager", 
+                ctx_self = fm_self,
+                item = item
+            }
+            local BookHoldDialog = require("desktop_modules/book_hold_dialog")
+            BookHoldDialog:openDialog(file, ctx)
+
+
+        end
+
+
+
+
+
+
+
+
+
+
+
     end
     end -- if not setup_already_patched
 end
@@ -781,6 +816,51 @@ function M.patchBookList(plugin)
         return orig_bl_new(class, attrs, ...)
     end
 end
+
+
+function M.patchHistory(plugin)
+    local ok, FMHist = pcall(require, "apps/filemanager/filemanagerhistory")
+    if not (ok and FMHist) then return end
+
+    -- Патч меню книги
+
+    FMHist.onMenuHold = function(fmh_self, item)  
+        local file = item.file
+
+        local ctx = {
+            type = "history", 
+            ctx_self = fmh_self,
+            item = item
+        }
+        local BookHoldDialog = require("desktop_modules/book_hold_dialog")
+        BookHoldDialog:openDialog(file, ctx)
+    end
+end
+
+
+
+
+function M.patchFileSearcher(plugin)
+    local ok, FMFS = pcall(require, "apps/filemanager/filemanagerfilesearcher")
+    if not (ok and FMFS) then return end
+
+    -- Патч меню книги
+
+    FMFS.onMenuHold = function(fmfs_self, item)  
+        if fmfs_self._manager.selected_files or lfs.attributes(item.path) == nil then return true end
+        local file = item.path
+
+        local ctx = {
+            type = "filesearcher", 
+            ctx_self = fmfs_self,
+        }
+        local BookHoldDialog = require("desktop_modules/book_hold_dialog")
+        BookHoldDialog:openDialog(file, ctx)
+    end
+end
+
+
+
 
 -- Patches the collections list menu (coll_list) height, and keeps the
 -- SimpleUI collections pool in sync when KOReader renames or deletes a collection.
@@ -1154,6 +1234,27 @@ function M.patchCollections(plugin)
             end
             return orig_title(fmc_self, collection_name)
         end
+    end
+
+
+
+
+    -- Патч меню книги
+
+    FMColl.onMenuHold = function(fmc_self, item)
+        if fmc_self._manager.selected_files then
+            fmc_self._manager:showSelectModeDialog()
+            return true
+        end
+    
+        local file = item.file
+
+        local ctx = {
+            type = "collection", 
+            ctx_self = fmc_self
+        }
+        local BookHoldDialog = require("desktop_modules/book_hold_dialog")
+        BookHoldDialog:openDialog(file, ctx)
     end
 end
 
@@ -1907,6 +2008,8 @@ function M.patchUIManagerClose(plugin)
                 end
             end
         end
+
+        UIManager:setDirty(nil, "full")
 
         return result
     end
@@ -3071,6 +3174,59 @@ end
 
 
 
+function M.patchBottomSwipe(Gestures)
+    local util = require("util")
+    local ReaderConfig = require("apps/reader/modules/readerconfig")
+    local orig_Gestures_addToMainMenu = Gestures.addToMainMenu
+
+    -- Добавляем новый пункт в настройки жестов
+    function Gestures:addToMainMenu(menu_items)
+        orig_Gestures_addToMainMenu(self, menu_items)
+        local gestures_table = menu_items.gesture_manager.sub_item_table
+
+        for i, item in pairs(gestures_table) do
+            if type(item) == "table" and item["text"] == "Bottom swipe" then
+                return
+            end
+        end
+
+        table.insert(menu_items.gesture_manager.sub_item_table, {
+            text = "Bottom swipe",
+            sub_item_table_func = function() return self:genMenu("swipe_up_bottom") end,
+            ignored_by_menu_search = true,
+        })
+    end
+
+    local zone_bottom = {
+        ratio_x = 0.25,
+        ratio_y = 0.75,
+        ratio_w = 0.5,
+        ratio_h = 0.25,
+    }
+
+    local PluginLoader = require("pluginloader")
+    local instance = PluginLoader:getPluginInstance("gestures")
+    if instance and type(instance.setupGesture) == "function" then
+        -- Регистрируем жест
+        instance:registerGesture("swipe_up_bottom", "swipe", zone_bottom, {}, {north = true})
+
+        -- Отключаем нижнее меню по свайпу если назначен жест
+
+        function ReaderConfig:onSwipeShowConfigMenu(gest)
+            local bottom_swipe_ges = instance.gestures["swipe_up_bottom"]
+            if bottom_swipe_ges and util.tableSize(bottom_swipe_ges) > 0 then 
+                return 
+            else
+                if self.activation_menu ~= "tap" and gest.direction == "north" then
+                    self:onShowConfigMenu()
+                    return true
+                end
+            end
+        end
+    end
+end
+
+
 
 
 
@@ -3084,9 +3240,12 @@ function M.installAll(plugin)
     M.patchStartWithMenu()
     M.patchBookList(plugin)
     M.patchCollections(plugin)
+    M.patchHistory(plugin)
+    M.patchFileSearcher(plugin)
     M.patchFullscreenWidgets(plugin)
     M.patchUIManagerShow(plugin)
     M.patchUIManagerClose(plugin)
+    --M.patchWidgetsRefresh()
     M.patchMenuInitForPagination(plugin)
     M.patchMenuForNavpager(plugin)
     M.patchBookInfoNavigation(plugin)
@@ -3114,6 +3273,12 @@ function M.installAll(plugin)
     if ok_bm and BM and BM.isEnabled() then pcall(BM.install) end
     -- Wallpaper in FM and fullscreen overlay surfaces.
     M.patchWallpaperFM(plugin)
+
+
+
+
+
+    
 end
 
 function M.teardownAll(plugin)

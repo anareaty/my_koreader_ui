@@ -289,9 +289,8 @@ function M.genTBRButton(file, close_cb)
     local full      = (not in_tbr) and (count >= TBR_MAX)
 
     return {
-        text    = (in_tbr and _("Remove from To Be Read") or _("Add to To Be Read"))
-                  .. "  " .. indicator,
-        enabled = not full,
+        text    = (in_tbr and _("Remove from To Be Read") or _("Add to To Be Read")),
+                --  .. "  " .. indicator,
         callback = function()
             if in_tbr then removeTBR(file) else addTBR(file) end
             if close_cb then close_cb() end
@@ -430,7 +429,7 @@ function M.build(w, ctx)
 
         function tappable:onHoldBook()
             local BookHoldDialog = require("desktop_modules/book_hold_dialog")
-            BookHoldDialog:openDialog(self._fp)
+            BookHoldDialog:openDialog(self._fp, {type = "sui_homescreen"})
             return true
         end
 

@@ -785,6 +785,12 @@ function SimpleUIPlugin:init()
             end)
         end
     end)
+
+
+
+    
+
+
     if not ok then logger.err("simpleui: init failed:", tostring(err)) end
 end
 
@@ -1585,5 +1591,10 @@ function SimpleUIPlugin:addToMainMenu(menu_items)
         return
     end
 end
+
+
+
+local userpatch = require("userpatch")
+userpatch.registerPatchPluginFunc("gestures", Patches.patchBottomSwipe)
 
 return SimpleUIPlugin

@@ -1796,11 +1796,11 @@ msgstr "В списке «Хочу прочитать» нет книг."
 
 #: desktop_modules/module_tbr.lua
 msgid "Add to To Be Read"
-msgstr "Добавить в «Хочу прочитать»"
+msgstr "Хочу прочитать"
 
 #: desktop_modules/module_tbr.lua
 msgid "Remove from To Be Read"
-msgstr "Удалить из «Хочу прочитать»"
+msgstr "Не хочу читать"
 
 #: desktop_modules/module_tbr.lua
 msgid "To Be Read"

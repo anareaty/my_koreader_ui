@@ -833,7 +833,7 @@ function M.build(w, ctx)
 
     function tappable:onHoldBook()
         local BookHoldDialog = require("desktop_modules/book_hold_dialog")
-        BookHoldDialog:openDialog(self._fp)
+        BookHoldDialog:openDialog(self._fp, {type = "sui_homescreen"})
         return true
     end
 
