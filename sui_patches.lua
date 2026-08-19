@@ -858,13 +858,10 @@ function M.patchFileSearcher(plugin)
         BookHoldDialog:openDialog(file, ctx)
     end
 
+    local ok, addCachedBookSearch = pcall(require, "cached_book_search")
+    if not (ok and addCachedBookSearch) then return end
 
-    function FMFS:onShowCachedBooksSearch(search_string)
-        return self:onShowFileSearch(search_string)
-    end
-    
-    local Dispatcher = package.loaded["dispatcher"]
-    Dispatcher:registerAction("cached_books_search", {category="none", event="ShowCachedBooksSearch", title=_("Search cached books"), filemanager=true})
+    addCachedBookSearch(FMFS)
 end
 
 
