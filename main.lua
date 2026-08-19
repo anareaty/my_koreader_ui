@@ -17,6 +17,7 @@ local Config       = require("sui_config")
 local UI           = require("sui_core")
 local Bottombar    = require("sui_bottombar")
 local Topbar       = require("sui_topbar")
+local QSBar        = require("sui_quicksettings_bar")
 local Patches      = require("sui_patches")
 local SUISettings  = require("sui_store")
 
@@ -660,6 +661,7 @@ function SimpleUIPlugin:init()
         -- -------------------------------------------------------------------
         if SUISettings:nilOrTrue("simpleui_enabled") then
             Patches.installAll(self)
+            pcall(function() QSBar.install() end)
             -- Register the TBR button in the Library hold dialog (single book).
             -- addFileDialogButtons is the official KOReader API for this.
             -- The multi-selection button is injected via patchGetPlusDialogButtons
@@ -804,6 +806,7 @@ local _PLUGIN_MODULES = {
     "sui_patches", "sui_menu", "sui_titlebar", "sui_quickactions",
     "sui_homescreen", "sui_foldercovers", "sui_browsemeta", "sui_updater",
     "sui_store", "sui_presets", "sui_style",
+    "screens/sui_quicksettings_bar",
     "desktop_modules/moduleregistry",
     "desktop_modules/module_books_shared",
     "desktop_modules/module_clock",
@@ -922,6 +925,7 @@ function SimpleUIPlugin:onTeardown()
         self._topbar_timer = nil
     end
     Patches.teardownAll(self)
+    pcall(function() QSBar.uninstall() end)
     I18n.uninstall()
     -- Give modules with internal upvalue caches a chance to nil them before
     -- their package.loaded entry is cleared — ensures the GC can collect the

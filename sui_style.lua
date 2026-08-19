@@ -214,6 +214,62 @@ function M.setIcon(id, path)
     end
 end
 
+
+
+
+
+
+
+local _SUPPORTED_ICON_EXTS = { png = true, svg = true, jpg = true, jpeg = true }
+
+
+function M.safeIconPath(path, fallback, slot_id)
+    -- Type check — nil/non-string means "no override", not an error.
+    if type(path) ~= "string" or path == "" then
+        return fallback
+    end
+
+    local Config = require("sui_config")
+    if Config.isNerdIcon(path) then
+        return path
+    end
+
+    -- Extension check — fast, no I/O.
+    local ext = path:match("%.([^.]+)$")
+    if not ext or not _SUPPORTED_ICON_EXTS[ext:lower()] then
+        logger.warn("simpleui/style: unsupported icon format '" .. tostring(ext)
+                    .. "' in path: " .. path)
+        if slot_id then M.setIcon(slot_id, nil) end
+        return fallback
+    end
+
+    -- Existence check — requires lfs; skip gracefully when unavailable.
+    -- Note: _reqLFS() is defined later in this file (Lua forward-reference
+    -- limitation), so we inline the pcall here instead of calling it.
+    local lfs_ok, lfs = pcall(require, "libs/libkoreader-lfs")
+    if lfs_ok and lfs then
+        if lfs.attributes(path, "mode") ~= "file" then
+            logger.warn("simpleui/style: icon file not found: " .. path)
+            if slot_id then M.setIcon(slot_id, nil) end
+            return fallback
+        end
+    else
+        -- lfs unavailable: trust the extension check, warn once.
+        logger.warn("simpleui/style: lfs unavailable, skipping existence check for: " .. path)
+    end
+
+    return path
+end
+
+
+
+
+
+
+
+
+
+
 --- Clears every system icon override.
 function M.resetAll()
     for _, s in ipairs(M.SLOTS) do

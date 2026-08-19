@@ -270,7 +270,8 @@ local function buildCompactGoalRow(inner_w, lbl_w, pct_w, label_str, pct, pct_st
         },
     }
     function tappable:onTapGoalC()
-        if self._on_tap then self._on_tap() end
+        --if self._on_tap then self._on_tap() end
+        UIManager:broadcastEvent(require("ui/event"):new("ShowYearProgress"))
         return true
     end
     return tappable
@@ -343,7 +344,8 @@ local function buildGoalRow(inner_w, label_str, pct, pct_str, detail_str, on_tap
         },
     }
     function tappable:onTapGoal()
-        if self._on_tap then self._on_tap() end
+        --if self._on_tap then self._on_tap() end
+        UIManager:broadcastEvent(require("ui/event"):new("ShowYearProgress"))
         return true
     end
     return tappable

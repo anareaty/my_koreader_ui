@@ -225,7 +225,8 @@ local function buildStatListCell(cell_w, stat_id, stats, show_sep, d, align, col
 end
 
 local function openReaderProgress()
-    UIManager:broadcastEvent(require("ui/event"):new("ShowReaderProgress"))
+    --UIManager:broadcastEvent(require("ui/event"):new("ShowReaderProgress"))
+    UIManager:broadcastEvent(require("ui/event"):new("ShowWeekProgress"))
 end
 
 -- ---------------------------------------------------------------------------

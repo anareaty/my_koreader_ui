@@ -857,6 +857,14 @@ function M.patchFileSearcher(plugin)
         local BookHoldDialog = require("desktop_modules/book_hold_dialog")
         BookHoldDialog:openDialog(file, ctx)
     end
+
+
+    function FMFS:onShowCachedBooksSearch(search_string)
+        return self:onShowFileSearch(search_string)
+    end
+    
+    local Dispatcher = package.loaded["dispatcher"]
+    Dispatcher:registerAction("cached_books_search", {category="none", event="ShowCachedBooksSearch", title=_("Search cached books"), filemanager=true})
 end
 
 
@@ -1019,12 +1027,17 @@ function M.patchCollections(plugin)
     if type(RC.addItem) == "function" then
         local orig_add = RC.addItem
         plugin._orig_rc_additem = orig_add
+
+
+        --[=[
         RC.addItem = function(rc_self, file, coll_name, attr, ...)
             local TBR = _getTBR()
             if TBR and coll_name == TBR.TBR_COLL_NAME then
                 local coll  = rc_self.coll and rc_self.coll[coll_name]
                 local count = 0
                 if coll then for _ in pairs(coll) do count = count + 1 end end
+
+                --[[
                 if count >= (TBR.TBR_MAX or 6) then
                     local ok_im, InfoMessage = pcall(require, "ui/widget/infomessage")
                     if ok_im then
@@ -1035,6 +1048,7 @@ function M.patchCollections(plugin)
                     end
                     return  -- abort — do NOT call orig_add
                 end
+                ]]
             end
             orig_add(rc_self, file, coll_name, attr, ...)
             if TBR and coll_name == TBR.TBR_COLL_NAME then
@@ -1045,6 +1059,25 @@ function M.patchCollections(plugin)
                 if not ok2 then logger.warn("simpleui: RC.addItem TBR hook:", tostring(err)) end
             end
         end
+
+        ]=]
+
+        RC.addItem = function(rc_self, file, coll_name, attr, ...)
+            local TBR = _getTBR()
+            orig_add(rc_self, file, coll_name, attr, ...)
+            if TBR and coll_name == TBR.TBR_COLL_NAME then
+                local ok2, err = pcall(function()
+                    _syncTBRSettings(TBR)
+                    plugin:_scheduleRebuild()
+                end)
+                if not ok2 then logger.warn("simpleui: RC.addItem TBR hook:", tostring(err)) end
+            end
+        end
+
+
+
+
+
     end
 
     if type(RC.addItemsMultiple) == "function" then
@@ -1052,6 +1085,9 @@ function M.patchCollections(plugin)
         plugin._orig_rc_additemsmultiple = orig_add_multiple
         RC.addItemsMultiple = function(rc_self, files, collections_to_add, ...)
             local TBR = _getTBR()
+
+
+            --[=[
             if TBR and collections_to_add[TBR.TBR_COLL_NAME] then
                 -- Count how many slots remain in the TBR collection.
                 local coll  = rc_self.coll and rc_self.coll[TBR.TBR_COLL_NAME]
@@ -1086,17 +1122,22 @@ function M.patchCollections(plugin)
                     -- by removing any excess entries that pushed it over the limit.
                     local result = orig_add_multiple(rc_self, files, collections_to_add, ...)
                     local coll2 = rc_self.coll and rc_self.coll[TBR.TBR_COLL_NAME]
+
+                    
                     if coll2 then
                         -- Build ordered list and drop those beyond TBR_MAX.
                         local items = {}
                         for _, item in pairs(coll2) do items[#items+1] = item end
                         table.sort(items, function(a,b) return (a.order or 0) < (b.order or 0) end)
+
+                        --[[
                         if #items > max then
                             for i = max + 1, #items do
                                 coll2[items[i].file] = nil
                             end
                             rc_self:write({ [TBR.TBR_COLL_NAME] = true })
                         end
+                        ]]
                         local ok_im, InfoMessage = pcall(require, "ui/widget/infomessage")
                         if ok_im then
                             require("ui/uimanager"):show(InfoMessage:new{
@@ -1105,10 +1146,12 @@ function M.patchCollections(plugin)
                             })
                         end
                     end
+                    
                     pcall(function() _syncTBRSettings(TBR); plugin:_scheduleRebuild() end)
                     return result
                 end
             end
+            ]=]
             local result = orig_add_multiple(rc_self, files, collections_to_add, ...)
             local TBR2 = _getTBR()
             if TBR2 and collections_to_add[TBR2.TBR_COLL_NAME] then
@@ -1123,6 +1166,9 @@ function M.patchCollections(plugin)
         plugin._orig_rc_addremoveitemmultiple = orig_add_remove
         RC.addRemoveItemMultiple = function(rc_self, file, collections_to_add, ...)
             local TBR = _getTBR()
+
+
+            --[=[
             if TBR and collections_to_add[TBR.TBR_COLL_NAME] then
                 local coll  = rc_self.coll and rc_self.coll[TBR.TBR_COLL_NAME]
                 local count = 0
@@ -1150,6 +1196,7 @@ function M.patchCollections(plugin)
                     return
                 end
             end
+            ]=]
             orig_add_remove(rc_self, file, collections_to_add, ...)
             local TBR2 = _getTBR()
             if TBR2 and collections_to_add[TBR2.TBR_COLL_NAME] then

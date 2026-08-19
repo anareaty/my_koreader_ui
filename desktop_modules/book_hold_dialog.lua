@@ -209,8 +209,8 @@ function BookHoldDialog:openDialog(file, ctx)
 
     local function refreshHomeScreen()
         local HS = package.loaded["sui_homescreen"]
-        if not HS then return end
-        HS:refreshImmediate()
+        if not (HS and HS._instance)  then return end
+        HS._instance:_refreshImmediate(false)
     end
 
 
@@ -228,7 +228,7 @@ function BookHoldDialog:openDialog(file, ctx)
 
     local function refresh_callback()
         if ctx.type == "filemanager" then
-            ctx_ui:refreshPath()
+            ctx_ui.file_chooser:refreshPath()
         elseif is_widget then
             ctx_self._manager:updateItemTable()
             ctx_self._manager.files_updated = true
@@ -428,15 +428,22 @@ function BookHoldDialog:openDialog(file, ctx)
                         local callback_orig = button.callback
                         button.callback = function()
                             callback_orig()
-                            UIManager:close(self.more_dialog)
+                            close_dialog_refresh_callback()
                         end
                         
                         if button.text == _("Remove from To Be Read") or button.text == _("Add to To Be Read") then
+
+                            button.callback = function()
+                                close_dialog_callback()
+                                callback_orig()
+                            end
+
                             table.insert(buttons, {button})
                         elseif button.text ~= _("Ignore cover") and
                         button.text ~= _("Unignore cover") and
                         button.text ~= _("Ignore metadata") and
-                        button.text ~= _("Unignore metadata") then
+                        button.text ~= _("Unignore metadata") and 
+                        (button.text ~= _("Refresh cached book information") or ctx.type ~= "sui_homescreen") then
                             table.insert(more_buttons, {button})
                         end
                     end

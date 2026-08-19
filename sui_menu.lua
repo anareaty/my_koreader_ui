@@ -2717,6 +2717,13 @@ SimpleUIPlugin.addToMainMenu = function(self, menu_items)
                             })
                         end,
                     },
+                    {
+                        text = _("Quick Settings Bar"),
+                        sub_item_table_func = function()
+                            local ok, QSBar = pcall(require, "sui_quicksettings_bar")
+                            return ok and QSBar.makeMenuItems(ctx_menu) or {}
+                        end
+                    },
                 },
             },
             { text = _("Home Screen"), sub_item_table_func = makeHomescreenMenu },
@@ -4033,6 +4040,8 @@ SimpleUIPlugin.addToMainMenu = function(self, menu_items)
     -- when a newer version is available. Uses in-memory cache (zero I/O).
     -- Kept separate from the table literal so sub_item_table remains a
     -- plain table — buildTabItems reads it directly and requires that.
+
+    --[[
     do
         local ok_u, Updater = pcall(require, "sui_updater")
         local banner = (ok_u and Updater) and Updater.build_update_banner_item() or nil
@@ -4040,6 +4049,7 @@ SimpleUIPlugin.addToMainMenu = function(self, menu_items)
             table.insert(menu_items.simpleui.sub_item_table, 1, banner)
         end
     end
+    ]]
 end -- addToMainMenu
 
 -- Build the item list for the dedicated SimpleUI settings tab.

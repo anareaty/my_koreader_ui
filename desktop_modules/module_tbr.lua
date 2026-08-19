@@ -57,7 +57,7 @@ local Screen = require("device").screen
 local CLR_TEXT_SUB    = UI.CLR_TEXT_SUB
 local _BASE_RB_PCT_FS = Screen:scaleBySize(8)  -- "XX% Read" label font size — base value
 
-local TBR_MAX       = 6
+--local TBR_MAX       = 6
 local TBR_SETTING   = "simpleui_tbr_list"    -- G_reader_settings key (kept in sync)
 local TBR_COLL_NAME = "Хочу прочитать"      -- KOReader collection name for the TBR list
 
@@ -178,6 +178,18 @@ local function isTBR(filepath)
     return false
 end
 
+
+
+
+local function refreshHomeScreen()
+    local HS = package.loaded["sui_homescreen"]
+    if not (HS and HS._instance)  then return end
+    HS._instance:_refreshImmediate(false)
+end
+
+
+
+
 --- Adds a book to the TBR list.
 --- Writes directly to RC internals (bypassing the hooked RC.addItem) to avoid
 --- re-entrancy; then syncs G_reader_settings.
@@ -185,7 +197,6 @@ end
 local function addTBR(filepath)
     if isTBR(filepath) then return true end
     local list = getTBRList()
-    if #list >= TBR_MAX then return false end
 
     local RC = getRC()
     if RC then
@@ -197,28 +208,46 @@ local function addTBR(filepath)
         -- directly — we stored the original in plugin._orig_rc_additem, but we
         -- don't have access to plugin here.  Instead we build the entry manually,
         -- matching what buildEntry / addItem would do.
+
+
+
+        
         local ffiUtil = require("ffi/util")
         local lfs2    = require("libs/libkoreader-lfs")
         local real    = ffiUtil.realpath(filepath) or filepath
         if real and lfs2.attributes(real, "mode") == "file" then
-            -- Compute next order manually (same logic as RC:getCollectionNextOrder).
-            local max_order = 0
-            for _, item in pairs(RC.coll[TBR_COLL_NAME]) do
-                if (item.order or 0) > max_order then max_order = item.order end
+
+            -- Сдвинуть порядок книг в коллекции чтобы всегда добавлять новую книгу в начало
+
+            local ordered_coll = RC:getOrderedCollection(TBR_COLL_NAME)
+            local coll = RC.coll[TBR_COLL_NAME]
+            for i, item in ipairs(ordered_coll) do
+                coll[item.file].order = i + 1
             end
+
+            -- Добавляем новую книгу в начало
             local attr = lfs2.attributes(real)
             RC.coll[TBR_COLL_NAME][real] = {
                 file  = real,
                 text  = real:gsub(".*/", ""),
-                order = max_order + 1,
+                order = 1,
                 attr  = attr,
             }
+
+
+            refreshHomeScreen()
+
+            -- Записываем чтобы изменения сохранились после перезагрузки. 
+            -- Вызывает задержку, поэтому применяем команду уже после обновления экрана
             RC:write({ [TBR_COLL_NAME] = true })
+
+            
         end
+        
     end
 
     -- Re-read the authoritative list after the RC write and sync settings.
-    _syncSettings(getTBRList())
+    --_syncSettings(getTBRList())
     return true
 end
 
@@ -234,15 +263,17 @@ local function removeTBR(filepath)
             local real    = ffiUtil.realpath(filepath) or filepath
             if real and coll[real] then
                 coll[real] = nil
+                refreshHomeScreen()
                 RC:write({ [TBR_COLL_NAME] = true })
             elseif coll[filepath] then
                 coll[filepath] = nil
+                refreshHomeScreen()
                 RC:write({ [TBR_COLL_NAME] = true })
             end
         end
     end
     -- Re-read and sync after RC write.
-    _syncSettings(getTBRList())
+    --_syncSettings(getTBRList())
 end
 
 -- ---------------------------------------------------------------------------
@@ -262,7 +293,7 @@ function M.reset() _SH = nil end
 
 -- Public constants
 M.TBR_COLL_NAME = TBR_COLL_NAME
-M.TBR_MAX       = TBR_MAX
+--M.TBR_MAX       = TBR_MAX
 
 -- Returns the localised display name for the TBR collection.
 -- Use this wherever the name is shown to the user; keep TBR_COLL_NAME
@@ -284,9 +315,9 @@ M.removeTBR   = removeTBR
 -- ---------------------------------------------------------------------------
 function M.genTBRButton(file, close_cb)
     local in_tbr    = isTBR(file)
-    local count     = getTBRCount()
-    local indicator = string.format("(%d/%d)", count, TBR_MAX)
-    local full      = (not in_tbr) and (count >= TBR_MAX)
+    --local count     = getTBRCount()
+    --local indicator = string.format("(%d/%d)", count, TBR_MAX)
+    --local full      = (not in_tbr) and (count >= TBR_MAX)
 
     return {
         text    = (in_tbr and _("Remove from To Be Read") or _("Add to To Be Read")),
