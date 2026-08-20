@@ -10,6 +10,7 @@ local _ = require("sui_i18n").translate
 local Config = require("sui_config")
 local SUISettings = require("sui_store")
 
+
 -- Lazy reference to the style module — avoids a circular-require at load time.
 local _SUIStyle
 local function SUIStyle()
@@ -944,16 +945,61 @@ function M.apply(fm_self)
                                 UIManager:setDirty(tb.show_parent or fm_self, "ui", tb.dimen)
                             end
                         end
+
+                        local function _filter(dlg, filter)
+                            UIManager:close(dlg)
+                            local LibFilters = require("lib_filters")
+
+                            if filter == "status" then
+                                LibFilters.showFilterByStatusMenu(fm_self)
+                            elseif filter == "rating" then
+                                LibFilters.showFilterByRatingMenu(fm_self)
+                            end
+                        end
+
                         local dlg
                         dlg = ButtonDialog:new{
                             title       = _("Browse library"),
                             title_align = "center",
+                            align = "left",
+                            shrink_unneeded_width = true,
+                            shrink_min_width = 550,
                             buttons = {
-                                {{ text = _check("normal") .. _("Default"),   callback = function() _navigate(dlg, "normal") end }},
-                                {{ text = _check("author") .. _("By author"), callback = function() _navigate(dlg, "author") end }},
-                                {{ text = _check("series") .. _("By series"), callback = function() _navigate(dlg, "series") end }},
-                                {{ text = _check("tags")   .. _("By tags"),   callback = function() _navigate(dlg, "tags")   end }},
-                                {{ text = _("Cancel"),                         callback = function() UIManager:close(dlg)     end }},
+                                {{ 
+                                    text = _check("normal") .. _("Default"), 
+                                    align = "left",  
+                                    callback = function() _navigate(dlg, "normal") end 
+                                }},
+                                {{ 
+                                    text = _check("author") .. _("By author"), 
+                                    align = "left",
+                                    callback = function() _navigate(dlg, "author") end 
+                                }},
+                                {{ 
+                                    text = _check("series") .. _("By series"), 
+                                    align = "left",
+                                    callback = function() _navigate(dlg, "series") end 
+                                }},
+                                {{ 
+                                    text = _check("tags")   .. _("By tags"),   
+                                    align = "left",
+                                    callback = function() _navigate(dlg, "tags")   end 
+                                }},
+                                {{ 
+                                    text = _check("status")   .. _("Filter by status"),
+                                    align = "left",   
+                                    callback = function() _filter(dlg, "status")   end 
+                                }},
+                                {{ 
+                                    text = _check("rating")   .. _("Filter by rating"),  
+                                    align = "left", 
+                                    callback = function() _filter(dlg, "rating")   end 
+                                }},
+                                {{ 
+                                    text = "  " .. _("Cancel"),     
+                                    align = "left",                    
+                                    callback = function() UIManager:close(dlg)     end 
+                                }},
                             },
                         }
                         UIManager:show(dlg)

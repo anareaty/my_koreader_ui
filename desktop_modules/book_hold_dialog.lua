@@ -434,9 +434,7 @@ function BookHoldDialog:openDialog(file, ctx)
                         end
                         
                         if button.text == _("Remove from To Be Read") or 
-                        button.text == _("Add to To Be Read") or
-                        button.text == _("More by author") or 
-                        button.text == _("More by series") then
+                        button.text == _("Add to To Be Read") then
 
                             button.callback = function()
                                 close_dialog_callback()
@@ -495,7 +493,7 @@ function BookHoldDialog:openDialog(file, ctx)
         if series and series_books_count and series_books_count > 1 then
             table.insert(buttons, {
                 {
-                    text = _("More by series"),
+                    text = _("More in series"),
                     callback = function()
                         close_dialog_menu_callback()
                         local target = "/\u{E257}/\u{ECD7}/" .. series

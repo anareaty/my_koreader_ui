@@ -2002,3 +2002,30 @@ msgstr "Ещё от автора"
 #: book_hold_dialog.lua:498
 msgid "More in series"
 msgstr "Ещё в цикле"
+
+
+#: sui_titlebar.lua:696
+#, fuzzy
+msgid "By author"
+msgstr "Авторы"
+
+#: sui_titlebar.lua:697
+msgid "By series"
+msgstr "Циклы"
+
+#: sui_titlebar.lua:698
+msgid "By tags"
+msgstr "Тэги"
+
+
+#: sui_titlebar.lua:954
+msgid "Browse library"
+msgstr "Обзор библиотеки"
+
+#: sui_titlebar.lua:954
+msgid "Filter by status"
+msgstr "Статус"
+
+#: sui_titlebar.lua:954
+msgid "Filter by rating"
+msgstr "Оценка"

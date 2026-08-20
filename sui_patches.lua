@@ -235,6 +235,29 @@ function M.patchFileManagerClass(plugin)
                 end
                 return orig_fc_changeToPath(fc_self, path, focused_path)
             end
+
+
+
+
+
+            -- Добавляем фильтр по рейтингу
+
+            local orig_show_file = FileChooser.show_file
+            FileChooser.show_file = function(fc_self, filename, fullpath)
+                local result = orig_show_file(fc_self, filename, fullpath)
+                if not result then return false end
+
+                local BookList = package.loaded["ui/widget/booklist"]
+                doc_settings_or_file = BookList.getDocSettings(fullpath)
+                local summary = doc_settings_or_file:readSetting("summary") or {}
+                local rating = summary.rating or 0
+                rating = rating + 1
+
+
+                if FileChooser.show_filter.rating and fullpath ~= nil
+                    and not FileChooser.show_filter.rating[rating] then return false end
+                return true
+            end
         end
 
         -- Patch FileManager.reinit so that external callers (e.g. NewsDownloader
@@ -793,6 +816,7 @@ function M.patchStartWithMenu()
         end
         return result
     end
+
 end
 
 -- ---------------------------------------------------------------------------
