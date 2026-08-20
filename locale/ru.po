@@ -1986,3 +1986,19 @@ msgstr "%d мин %d сек"
 #: desktop_modules/module_reading_stats.lua:62
 msgid "%dh %dm %ds"
 msgstr "%d ч %d мин %d сек"
+
+
+
+
+#: cached_book_search.lua:312
+msgid "New search"
+msgstr "Новый поиск"
+
+
+#: book_hold_dialog.lua:482
+msgid "More by author"
+msgstr "Ещё от автора"
+
+#: book_hold_dialog.lua:498
+msgid "More in series"
+msgstr "Ещё в цикле"

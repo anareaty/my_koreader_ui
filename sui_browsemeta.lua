@@ -97,6 +97,10 @@ local _SP_tried  = false
 -- Resolved once at install time (require("ffi") is heavy to call every nav).
 local _is_windows = nil
 
+
+
+local authors_reverted = {}
+
 -- ---------------------------------------------------------------------------
 -- Cache management
 -- ---------------------------------------------------------------------------
@@ -233,7 +237,35 @@ local _SQL_BASE = "SELECT directory, filename, title, authors, series, series_in
 -- Returns { {fullpath, filename, title=, authors=, series=, series_index=}, ... }
 -- lfs.attributes() is NOT called here; validation happens in the render loop
 -- where the attr table is needed anyway, keeping this function to pure SQL.
+
+
+
+
+
+
+
 local function _getMatchingFiles(base_dir, filters)
+
+
+
+    function switchAuthorNamesBack(author)
+        if author then
+        
+            author = author:match("^%s*(.-)%s*$") or ""
+            local first_space = author:find(" ")
+            if first_space then
+                local first_name = author:sub(first_space + 1)
+                local last_name = author:sub(1, first_space)
+                author = first_name .. " " .. last_name
+            end
+            author = author:match("^%s*(.-)%s*$") or ""
+        end
+        return author
+    end
+
+
+
+
     local bim = _getBookInfoManager()
     if not bim then return {} end
 
@@ -244,7 +276,14 @@ local function _getMatchingFiles(base_dir, filters)
         local col, val = f[1], f[2]
         if val == false then
             sql = sql .. " AND " .. col .. " IS NULL"
-        elseif col == "authors" or col == "keywords" then
+        elseif col == "authors" then
+
+            val = authors_reverted[val] or val
+            
+            -- Multi-value fields: newline-delimited, match exact token.
+            sql = sql .. " AND ', '||" .. col .. "||', ' GLOB ?"
+            vars[#vars + 1] = "*, " .. val .. ", *"
+        elseif col == "keywords" then
             -- Multi-value fields: newline-delimited, match exact token.
             sql = sql .. " AND '\n'||" .. col .. "||'\n' GLOB ?"
             vars[#vars + 1] = "*\n" .. val .. "\n*"
@@ -291,18 +330,69 @@ end
 -- Returns { {value, count, _first=row}, ... } for dim_key under base_dir.
 -- _first carries the first file row so _getVirtualList can seed
 -- _repr_file_cache without an additional SQL query per item.
+
+
+
+
+
+
 local function _getMetadataValues(base_dir, dim_key)
     local files   = _getMatchingFiles(base_dir, {})
     local grouped = {}
     local first   = {}
 
+
+
+
+    function switchAuthorNames(author, dim_key)
+
+        local orig = author
+        if author and dim_key == "author" then
+        
+            author = author:match("^%s*(.-)%s*$") or ""
+            local last_space = author:reverse():find(" ")
+            if last_space then
+                local last_name = author:sub(-last_space + 1)
+                local first_name = author:sub(1, -last_space - 1)
+                author = last_name .. " " .. first_name
+            end
+            author = author:match("^%s*(.-)%s*$") or ""
+        end
+
+        authors_reverted[author] = orig
+        return author
+    end
+
+
+
+
+
     for _, row in ipairs(files) do
         if dim_key == "author" or dim_key == "tags" then
             -- Multi-value dimension: one book can appear under several entries.
             local raw = (dim_key == "author") and row.authors or row.keywords
+
             if raw and raw:find("\n", 1, true) then
                 for token in util.gsplit(raw, "\n") do
                     if token ~= "" then
+
+                        token = switchAuthorNames(token, dim_key)
+                        if not grouped[token] then
+                            grouped[token] = 0
+                            first[token]   = row
+                        end
+                        grouped[token] = grouped[token] + 1
+                    end
+                end
+
+            -- Фиксим разделение авторов и убираем переводчиков
+            elseif raw and raw:find(", ", 1, true) then
+                for token in util.gsplit(raw, ", ") do
+                    if token ~= "" and not string.find(token, "(пер)") then
+
+                        token = switchAuthorNames(token, dim_key)
+
+
                         if not grouped[token] then
                             grouped[token] = 0
                             first[token]   = row
@@ -312,6 +402,14 @@ local function _getMetadataValues(base_dir, dim_key)
                 end
             else
                 local key = raw or false
+                
+
+                key = switchAuthorNames(key, dim_key)
+
+
+    
+
+
                 if not grouped[key] then
                     grouped[key] = 0
                     first[key]   = row
@@ -327,12 +425,28 @@ local function _getMetadataValues(base_dir, dim_key)
             end
             grouped[key] = grouped[key] + 1
         end
+
+
+
+
+
+
+
+
+
+
+
     end
 
     local out = {}
     for value, count in pairs(grouped) do
         out[#out + 1] = { value, count, _first = first[value] }
     end
+
+
+
+
+
 
     table.sort(out, function(a, b)
         local av, bv = a[1], b[1]
@@ -342,8 +456,50 @@ local function _getMetadataValues(base_dir, dim_key)
         return ffiUtil.strcoll(av, bv)
     end)
 
+
+
+
+
     return out
 end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 -- ---------------------------------------------------------------------------
 -- Sort helpers for file lists
@@ -427,7 +583,6 @@ end
 -- ---------------------------------------------------------------------------
 
 local function _getVirtualList(fc, path, collate)
-
     local base_dir, dim_key, filter_value, level = _parseVirtualPath(path)
     if not level then return {}, {} end
 
@@ -439,14 +594,14 @@ local function _getVirtualList(fc, path, collate)
             local text  = dim.symbol .. "  " .. (_("Browse by") .. " " .. dim.label)
             local vpath = _dimPath(base_dir, dk)
             if collate then
-                local item = fc:getListItem(nil, text, vpath, _fakeAttr(i), collate)
+                -- Для корневых категорий используем стандартный генератор
+                local item = fc:getListItem(nil, text, vpath, lfs.attributes(base_dir) or _fakeAttr(i), collate)
                 item.mandatory = nil
                 dirs[#dirs + 1] = item
             else
                 dirs[#dirs + 1] = true
             end
         end
-
         return dirs, files
     end
 
@@ -454,135 +609,74 @@ local function _getVirtualList(fc, path, collate)
     _ensureCacheBaseDir(base_dir)
 
     if level == "dim_list" then
-
         local values = _meta_values_cache[path]
         if not values then
             values = _getMetadataValues(base_dir, dim_key)
             _meta_values_cache[path] = values
         end
-
         local overrides = SUISettings:readSetting(_FC_COVERS_KEY) or {}
 
         for i, v in ipairs(values) do
             local val   = v[1]
             local label = (val == false or val == nil) and NULL_MARKER or val
             local vpath = _leafPath(base_dir, dim_key, val)
-
-            
-
-
             
             if collate then
-                -- Compute the real count by applying the same filters that
-                -- file_list uses when rendering: lfs.attributes (existence on
-                -- disk) and fc:show_file (extension/hidden-file filters).
-                -- The SQL count in v[2] may be higher when the bookinfo DB
-                -- contains stale entries for deleted files, or when fc's
-                -- show_file filter hides certain extensions.
-                --local col = DIMS[dim_key].db_column
-                --local raw_rows = _getMatchingFiles(base_dir, { { col, val } })
-                --local real_count = 0
-                local real_count = v[2] or 0 
-                local real_repr  = nil
+                -- БЫСТРЫЙ СЧЕТЧИК: Берем количество книг из готового SQL-результата v[2]
+                local real_count = v[2] or 0
 
-                --[[
-                for _, row in ipairs(raw_rows) do
-                    local fullpath = row[1]
-                    local fname    = row[2]
-                    local attr = lfs.attributes(fullpath)
-                    if attr and attr.mode == "file" and fc:show_file(fname, fullpath) then
-                        real_count = real_count + 1
-                        if not real_repr then real_repr = fullpath end
+                if real_count > 0 then
+                    -- Передаем базовые атрибуты папки, чтобы ридер корректно рисовал иконки категорий
+                    local item = fc:getListItem(nil, label, vpath, lfs.attributes(base_dir) or _fakeAttr(i), collate)
+                    item.nb_sub_files = real_count
+                    item.mandatory    = tostring(real_count) .. " \u{F016}"
+
+                    -- Восстанавливаем отображение обложки папки (Folder Covers) из первого элемента
+                    local repr = nil
+                    local override_fp = overrides[vpath]
+                    if override_fp and lfs.attributes(override_fp, "mode") == "file" then
+                        repr = override_fp
+                        _repr_file_cache[vpath] = repr
+                    elseif v._first then
+                        repr = v._first[1]
+                        _repr_file_cache[vpath] = repr
                     end
+
+                    item.is_virtual_meta_leaf = true
+                    item.virtual_leaf_count   = real_count
+                    if repr then
+                        item.representative_filepath = repr
+                    end
+                    dirs[#dirs + 1] = item
                 end
-                ]]
-
-                -- Skip virtual folders whose every book has been deleted from disk.
-                -- The bookinfo DB may still hold stale metadata for those files,
-                -- but showing an empty virtual folder would confuse the user.
-
-                if real_count == 0 then
-                    _repr_file_cache[vpath] = nil  -- evict any stale repr entry
-                    -- fall through to else branch: add a plain 'true' placeholder
-                    -- so the parent count (dirs) stays consistent for non-collate callers.
-                else
-
-                local item = fc:getListItem(nil, label, vpath, _fakeAttr(i), collate)
-                item.nb_sub_files = real_count
-                item.mandatory    = tostring(real_count) .. " \u{F016}"
-
-                -- Populate repr cache from the metadata scan to avoid per-item
-                -- SQL queries. User override takes priority.
-
-                local repr
-                local override_fp = overrides[vpath]
-                if override_fp and lfs.attributes(override_fp, "mode") == "file" then
-                    repr = override_fp
-                    _repr_file_cache[vpath] = repr
-                elseif real_repr then
-                    -- real_repr comes from the current scan and is verified on disk;
-                    -- always prefer it over a potentially stale cached value.
-                    repr = real_repr
-                    _repr_file_cache[vpath] = repr
-                elseif _repr_file_cache[vpath] ~= nil then
-                    repr = _repr_file_cache[vpath] or nil
-                elseif v._first then
-                    repr = v._first[1]
-                    _repr_file_cache[vpath] = repr
-                end
-
-
-                -- Always mark as a virtual meta leaf so the folder decoration
-                -- (stacked-cover lines + badge) is rendered even when no
-                -- representative cover is available (e.g. the ∅ no-author/
-                -- no-series bucket whose books have no cached covers yet).
-
-                item.is_virtual_meta_leaf = true
-                item.virtual_leaf_count   = real_count
-
-                if repr then
-                    item.representative_filepath = repr
-                end
-                
-                dirs[#dirs + 1] = item
-                end -- real_count > 0
             else
                 dirs[#dirs + 1] = true
             end
-            
-
-
-
-
-            
-
-
         end
-
-
         return dirs, files
     end
 
     if level == "file_list" then
         local col    = DIMS[dim_key].db_column
         local cached = _matching_files_cache[path]
+
         if not cached then
             cached = _getMatchingFiles(base_dir, { { col, filter_value } })
             _sortFiles(cached, dim_key)
             _matching_files_cache[path] = cached
         end
-        local is_author_dim = (dim_key == "author")  -- tags + series share the "else" path
+
+        local is_author_dim = (dim_key == "author")
         for _, row in ipairs(cached) do
             local fullpath = row[1]
             local fname    = row[2]
-            -- lfs.attributes() is needed here: FC requires the attr table to
-            -- build each list item, and it doubles as a stale-entry filter.
+
+            -- ВОЗВРАТ РАБОТЫ КНИГ: Получаем реальные атрибуты файла с диска ридера.
+            -- Делаем это только для конечного списка книг одного автора, что не тормозит систему.
             local attr = lfs.attributes(fullpath)
             if attr and attr.mode == "file" and fc:show_file(fname, fullpath) then
                 local item = fc:getListItem(path, fname, fullpath, attr, collate)
-                -- Forward metadata from the SQL row so CoverBrowser and list-view
-                -- renderers can display title/author/series without re-reading
-                -- the sidecar. Mirrors what sui_metabrowser did via _buildBookItems.
+
                 if row.title or row.authors or row.series then
                     item.doc_props = {
                         display_title = row.title,
@@ -591,10 +685,7 @@ local function _getVirtualList(fc, path, collate)
                         series_index  = row.series_index,
                     }
                 end
-                -- Contextual mandatory text:
-                --   author mode  → series + index (gives reading-order context)
-                --   series mode  → first author name
-                --   tags mode    → first author name (same as series mode)
+                
                 if collate then
                     if is_author_dim then
                         if row.series and row.series ~= "" then
@@ -605,7 +696,6 @@ local function _getVirtualList(fc, path, collate)
                             item.mandatory = m
                         end
                     else
-                        -- series and tags modes: show first author
                         if row.authors and row.authors ~= "" then
                             item.mandatory = row.authors:gsub("\n.*", " et al.")
                         end
@@ -614,10 +704,8 @@ local function _getVirtualList(fc, path, collate)
                 files[#files + 1] = item
             end
         end
-
         return dirs, files
     end
-
 
     return dirs, files
 end
@@ -669,6 +757,47 @@ end
 -- Navigation
 -- ---------------------------------------------------------------------------
 
+
+
+function M.getAuthorBookCount(author)
+    local bim = _getBookInfoManager()
+    if not bim then return {} end
+    bim:openDbConnection()
+    stmt = bim.db_conn:prepare([[
+        SELECT COUNT(*)
+        FROM bookinfo
+        WHERE authors = ?
+    ]])
+
+    local rows = stmt:reset():bind(author):step()
+    local count = rows[1]
+    if count then count = tonumber(count) end
+    if stmt then pcall(function() stmt:finalize() end) end
+    return count
+end
+
+
+
+
+function M.getSeriesBookCount(series)
+    local bim = _getBookInfoManager()
+    if not bim then return {} end
+    bim:openDbConnection()
+    stmt = bim.db_conn:prepare([[
+        SELECT COUNT(*)
+        FROM bookinfo
+        WHERE series = ?
+    ]])
+
+    local rows = stmt:reset():bind(series):step()
+    local count = rows[1]
+    if count then count = tonumber(count) end
+    if stmt then pcall(function() stmt:finalize() end) end
+    return count
+end
+
+
+
 function M.exitToNormal(fc, fm)
     if not fc then return end
     local base = _baseDir(fc.path)
@@ -697,6 +826,9 @@ function M.navigateTo(fm, mode)
     end
 
     local target = _dimPath(base, mode)
+
+    print(target)
+
     -- Always mark the dim_list root as the entry point so the up button is
     -- never shown when the user is at the top-level Authors/Series list.
     fc._browse_by_meta_entry_path = target
@@ -725,6 +857,8 @@ function M.navigateToRoot(fc, fm, mode)
     if not fc or not mode then return end
     local base   = _baseDir(fc.path)
     local target = _dimPath(base, mode)
+
+    print(target)
     -- Re-set the entry path so the up button stays hidden at this level.
     fc._browse_by_meta_entry_path = target
     -- If we are already at the dim_list root, just go to page 1 + refresh.
@@ -757,6 +891,80 @@ function M.isAtVirtualRoot(fc, mode)
     local target = _dimPath(base, mode)
     return fc.path == target
 end
+
+
+
+
+
+
+
+
+
+
+
+
+
+function M.navigateToAuthorLeaf(fm, author_name, origin_file)
+
+    if not fm or not author_name or author_name == "" then return end
+    local fc = fm.file_chooser
+    if not fc then return end
+
+    local mode = "authors"
+
+    local base = _baseDir(fc.path)
+    print(base)
+    local target = VROOT_SEP .. "/" .. DIMS["author"].symbol .. "/" .. author_name
+
+    print(target)
+
+
+
+    --fm:showFiles()
+    fc:changeToPath(target)
+
+
+    --[[
+    if not fm or not author_name or author_name == "" then return end
+    local fc = fm.file_chooser
+    if not fc then return end
+
+    local base   = VirtualPath.getBaseDir(fc.path)
+    local target = VirtualPath.buildLeaf(base, nil, "author", author_name)
+
+    -- Save the origin so onFolderUp can return to exactly the right place.
+    -- Stored on fc (not a module upvalue) so it survives across module reloads.
+    if origin_file then
+        local real_path = fc.path
+        if VirtualPath.isVirtual(real_path) then real_path = base end
+        fc._sui_author_dialog_origin = { path = real_path, file = origin_file }
+    else
+        fc._sui_author_dialog_origin = nil
+    end
+
+    -- Set the entry path to the Authors root so the up-button hierarchy is
+    -- correct when the user did NOT come from the dialog (normal flow).
+    fc._browse_by_meta_entry_path = VirtualPath.buildDimList(base, nil, "author")
+    fm._navbar_suppress_path_change = true
+    fc:changeToPath(target)
+    fm._navbar_suppress_path_change = nil
+    if fm.updateTitleBarPath then
+        pcall(function() fm:updateTitleBarPath(target) end)
+    end
+    if fc.onGotoPage then
+        pcall(function() fc:onGotoPage(1) end)
+    end
+    -- Persist "author" mode so the next session restores the virtual tree.
+    M.setSavedMode("author")
+    ]]
+end
+
+
+
+
+
+
+
 
 -- ---------------------------------------------------------------------------
 -- FileChooser patches

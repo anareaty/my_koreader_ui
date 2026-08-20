@@ -273,7 +273,9 @@ function BookHoldDialog:openDialog(file, ctx)
 
     local function close_dialog_menu_callback()
         close_dialog_callback()
-        ctx_self.close_callback()
+        if is_widget then
+            ctx_self.close_callback()
+        end
     end
 
 
@@ -431,7 +433,10 @@ function BookHoldDialog:openDialog(file, ctx)
                             close_dialog_refresh_callback()
                         end
                         
-                        if button.text == _("Remove from To Be Read") or button.text == _("Add to To Be Read") then
+                        if button.text == _("Remove from To Be Read") or 
+                        button.text == _("Add to To Be Read") or
+                        button.text == _("More by author") or 
+                        button.text == _("More by series") then
 
                             button.callback = function()
                                 close_dialog_callback()
@@ -450,6 +455,71 @@ function BookHoldDialog:openDialog(file, ctx)
                 end
             end
         end
+
+
+
+        local author, author_books_count
+        local series, series_books_count
+        local ok_bm, BM = pcall(require, "sui_browsemeta")
+        if ok_bm and BM then 
+            local authors_raw = book_props and book_props.authors
+            if authors_raw and authors_raw ~= "" then
+                author = authors_raw:match("^([^,]+)") or authors_raw
+                author = author:match("^%s*(.-)%s*$") -- trim whitespace
+                author_books_count = BM.getAuthorBookCount(author) or 1
+            end
+
+            series = book_props and book_props.series
+
+            if series and series ~= "" then
+                series_books_count = BM.getSeriesBookCount(series) or 1
+            end
+        end
+
+        if author and author_books_count and author_books_count > 1 then
+            table.insert(buttons, {
+                {
+                    text = _("More by author"),
+                    callback = function()
+                        close_dialog_menu_callback()
+                        local target = "/\u{E257}/\u{F2C0}/" .. author
+                        if ctx.type == "sui_homescreen" then
+                            FileManager:showFiles(file)
+                        end
+                        FileManager.instance.file_chooser:changeToPath(target)   
+                    end,
+                }
+            })
+        end
+
+        if series and series_books_count and series_books_count > 1 then
+            table.insert(buttons, {
+                {
+                    text = _("More by series"),
+                    callback = function()
+                        close_dialog_menu_callback()
+                        local target = "/\u{E257}/\u{ECD7}/" .. series
+                        if ctx.type == "sui_homescreen" then
+                            FileManager:showFiles(file)
+                        end
+                        FileManager.instance.file_chooser:changeToPath(target) 
+   
+                    end,
+                }
+            })
+        end
+
+
+
+
+
+
+            
+
+
+
+
+
 
         if ctx.type == "collection" then
             table.insert(buttons, {
@@ -487,11 +557,14 @@ function BookHoldDialog:openDialog(file, ctx)
                     text = _("Show folder"),
                     callback = function()
                         FileManager:showFiles(file)
-                        local pathname = util.splitFilePathName(file)
-                        FileManager.instance.file_chooser:changeToPath(pathname, file)     
+                        local parent_folder = util.splitFilePathName(file)
+                        FileManager.instance.file_chooser:changeToPath(parent_folder, file)     
                     end,
                 }
             })
+
+
+
         elseif is_widget then
             table.insert(buttons, {
                 filemanagerutil.genShowFolderButton(file, close_dialog_menu_callback),
