@@ -12,8 +12,9 @@ local Config    = require("sui_config")
 local UI        = require("sui_core")
 local Bottombar = require("sui_bottombar")
 local SUISettings = require("sui_store")
-
-
+local Size = require("ui/size")
+local util = require("util")
+local BookInfoManager = require("bookinfomanager")
 
 -- Lazy: only needed on D-pad devices, inside gesture event handlers.
 local _FocusManager
@@ -1243,6 +1244,164 @@ function M.patchCollections(plugin)
         end
     end
 
+
+    --[[
+    local updateItemTable_orig = FMColl.updateItemTable
+
+    FMColl.updateItemTable = function(fmc_self, item_table, focused_file)
+
+        updateItemTable_orig(fmc_self, item_table, focused_file)
+
+        for i, item in pairs(fmc_self.booklist_menu.item_table) do
+            item.text = "ggg"
+        end
+
+        
+        if item_table == nil then
+            item_table = {}
+            for _, item in pairs(RC.coll[fmc_self.booklist_menu.path]) do
+                if fmc_self:isItemMatch(item) then
+
+
+                    
+                    local title = item.text
+                    local book_info = BookInfoManager:getBookInfo(item.file)
+                    if book_info and book_info.title then
+                        title = book_info.title
+                    end
+                    
+
+                    item.text = "title"
+
+                    
+
+                    local item_tmp = {
+                        file      = item.file,
+                        text      = item.text,
+                        order     = item.order,
+                        attr      = item.attr,
+                        mandatory = fmc_self.mandatory_func and fmc_self.mandatory_func(item) or util.getFriendlySize(item.attr.size or 0),
+                    }
+                    if fmc_self.item_func then
+                        fmc_self.item_func(item_tmp, fmc_self.ui)
+                    end
+                    table.insert(item_table, item_tmp)
+                end
+            end
+            if #item_table > 1 then
+                table.sort(item_table, fmc_self.sorting_func)
+            end
+        end
+
+        --for i, item in pairs
+        local title, subtitle = fmc_self:getBookListTitle(item_table)
+        fmc_self.booklist_menu:switchItemTable(title, item_table, -1, focused_file and { file = focused_file }, subtitle)
+        
+    end
+
+    ]]
+
+
+
+    FMColl.showArrangeBooksDialog = function(fmc_self)
+
+        local BookList = package.loaded["ui/widget/booklist"]
+
+        --[[
+        doc_settings_or_file = BookList.getDocSettings(fullpath)
+        local summary = doc_settings_or_file:readSetting("summary") or {}
+        local rating = summary.rating or 0
+        rating = rating + 1
+        ]]
+
+
+        local collection_name = fmc_self.booklist_menu.path
+        local coll_settings = RC.coll_settings[collection_name]
+        local curr_collate_id = coll_settings.collate
+        local arrange_dialog
+        local function genCollateButton(collate_id)
+            local collate = BookList.collates[collate_id]
+            return {
+                text = collate.text .. (curr_collate_id == collate_id and "  ✓" or ""),
+                callback = function()
+                    if curr_collate_id ~= collate_id then
+                        UIManager:close(arrange_dialog)
+                        fmc_self.updated_collections[collection_name] = true
+                        fmc_self:setCollate(collate_id)
+                        fmc_self:updateItemTable()
+                    end
+                end,
+            }
+        end
+        local buttons = {
+            {
+                genCollateButton("authors"),
+                genCollateButton("title"),
+            },
+            {
+                genCollateButton("keywords"),
+                genCollateButton("series"),
+            },
+            {
+                genCollateButton("natural"),
+                genCollateButton("strcoll"),
+            },
+            {
+                genCollateButton("size"),
+                genCollateButton("access"),
+            },
+            {{
+                text = _("Reverse sorting") .. (coll_settings.collate_reverse and "  ✓" or ""),
+                enabled = curr_collate_id and true or false, -- disabled for manual sorting
+                callback = function()
+                    UIManager:close(arrange_dialog)
+                    fmc_self.updated_collections[collection_name] = true
+                    fmc_self:setCollate(nil, not coll_settings.collate_reverse)
+                    fmc_self:updateItemTable()
+                end,
+            }},
+            {}, -- separator
+            {{
+                text = _("Manual sorting") .. (curr_collate_id == nil and "  ✓" or ""),
+                callback = function()
+
+                    local item_table = fmc_self.booklist_menu.item_table
+
+                    for i, item in ipairs(item_table) do
+                        local book_props = fmc_self.ui.coverbrowser and fmc_self.ui.coverbrowser:getBookInfo(item.file)
+                        local text = item.text
+                        item.text = book_props.title or text
+                    end
+
+                    UIManager:close(arrange_dialog)
+                    local sort_widget
+                    local SortWidget = package.loaded["ui/widget/sortwidget"]
+                    sort_widget = SortWidget:new{
+                        title = _("Arrange books in collection"),
+                        item_table = item_table,
+                        callback = function()
+                            RC:updateCollectionOrder(collection_name, sort_widget.item_table)
+                            fmc_self.updated_collections[collection_name] = true
+                            fmc_self:setCollate(false, false)
+                            fmc_self:updateItemTable()
+                        end,
+                    }
+                    UIManager:show(sort_widget)
+                end,
+            }},
+        }
+        local ButtonDialog = require("ui/widget/buttondialog")
+        arrange_dialog = ButtonDialog:new{
+            title = _("Sort by"),
+            title_align = "center",
+            buttons = buttons,
+        }
+        UIManager:show(arrange_dialog)
+    end
+
+
+
+
     -- Patch FMColl.updateCollListItemTable to:
     --   1. Hide the TBR collection when it is empty (no books).
     --   2. Show the localised display name instead of the raw RC key.
@@ -1324,6 +1483,19 @@ function M.patchCollections(plugin)
         local BookHoldDialog = require("desktop_modules/book_hold_dialog")
         BookHoldDialog:openDialog(file, ctx)
     end
+
+
+
+
+
+    
+    
+
+
+
+
+
+
 end
 
 -- Patches SortWidget and PathChooser to fit inside the content area.
@@ -2144,15 +2316,21 @@ function M.patchMenuInitForPagination(plugin)
             end
         end
 
+
+     
         if SUISettings:nilOrTrue("simpleui_bar_pagination_visible") then return end
+
+        
         if not TARGET_NAMES[menu_self.name]
            and not (menu_self.covers_fullscreen and menu_self.is_borderless and menu_self.title_bar_fm_style) then
             return
         end
 
+     
+
         -- Collections widgets use the native page_return_arrow inside return_button
         -- (a BottomContainer managed entirely by Menu). Leave their layout untouched.
-        if menu_self.name == "collections" or menu_self.name == "coll_list" then return end
+        --if menu_self.name == "collections" or menu_self.name == "coll_list" then return end
 
         -- Remove all children except content_group to strip the pagination row
         -- (page_info, return_button, etc.) for non-collection targets.
@@ -2175,18 +2353,49 @@ function M.patchMenuInitForPagination(plugin)
             self_inner.page_return_arrow = nil
             self_inner.page_info_text    = nil
             self_inner.page_info         = nil
+
             local instance_fn = self_inner._recalculateDimen
             self_inner._recalculateDimen = nil
             local ok, err = pcall(function()
                 self_inner:_recalculateDimen(no_recalculate_dimen)
+
             end)
             self_inner._recalculateDimen = instance_fn
             self_inner.page_return_arrow = saved_arrow
             self_inner.page_info_text    = saved_text
             self_inner.page_info         = saved_info
+
+
+            
+            
+            -- Убираем отступ внизу
+            local others_height = self_inner.others_height or 0
+            local available_height = self_inner.inner_dimen.h - others_height + 3
+            self_inner.item_height = math.floor(available_height / self_inner.perpage) - Size.line.thin
+            self_inner.item_dimen.h = self_inner.item_height
+
+    
             if not ok then error(err, 2) end
         end
         menu_self:_recalculateDimen()
+    end
+
+
+    local ListMenu = require("listmenu")
+    local listMenu_recalculateDimen_orig = ListMenu._recalculateDimen
+    ListMenu._recalculateDimen = function(self)
+        local saved_info  = self.page_info
+        self.page_info = nil
+        listMenu_recalculateDimen_orig(self)
+        self.page_info         = saved_info
+
+        -- Убираем отступ внизу (для виджетов)
+        local others_height = self.others_height or 0
+        local available_height = self.inner_dimen.h - others_height + 3
+        self.item_height = math.floor(available_height / self.perpage) - Size.line.thin
+        self.item_dimen.h = self.item_height
+
+        
     end
 end
 

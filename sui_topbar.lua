@@ -137,7 +137,8 @@ function M.TOPBAR_PAD_TOP()
 end
 function M.TOPBAR_PAD_BOT()
     return _cached("tb_pad_bot", function()
-        return math.floor(Screen:scaleBySize(8) * _getTopbarScale())
+        --return math.floor(Screen:scaleBySize(8) * _getTopbarScale())
+        return math.floor(Screen:scaleBySize(4) * _getTopbarScale())
     end)
 end
 function M.TOTAL_TOP_H()

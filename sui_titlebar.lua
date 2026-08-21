@@ -9,7 +9,8 @@
 local _ = require("sui_i18n").translate
 local Config = require("sui_config")
 local SUISettings = require("sui_store")
-
+local BookList = require("ui/widget/booklist")
+local util = require("util")
 
 -- Lazy reference to the style module — avoids a circular-require at load time.
 local _SUIStyle
@@ -102,9 +103,9 @@ local _FM_DEFAULTS = {
     order_right = { "browse_button", "menu_button" },
 }
 local _INJ_DEFAULTS = {
-    side        = { inj_back = "right", inj_right = "right" },
-    order_left  = {},
-    order_right = { "inj_back", "inj_right" },
+    side        = { inj_col = "left", inj_back = "left", inj_right = "right" },
+    order_left  = {"inj_col", "inj_back"},
+    order_right = { "inj_right" },
 }
 
 -- ---------------------------------------------------------------------------
@@ -119,6 +120,7 @@ M.ITEMS = {
     { id = "title",         label = function() return _("Title")             end, ctx = "fm",  no_side = true },
     { id = "inj_back",      label = function() return _("Menu")              end, ctx = "inj" },
     { id = "inj_right",     label = function() return _("Close")             end, ctx = "inj" },
+    { id = "inj_col",       label = function() return _("Collections")       end, ctx = "inj" },
 }
 
 -- ---------------------------------------------------------------------------
@@ -513,7 +515,8 @@ function M.apply(fm_self)
     local visible = {}
     if show_menu   then visible["menu_button"]   = true end
     if show_up     then visible["up_button"]     = true end
-    if show_search then visible["search_button"] = true end
+    --if show_search then visible["search_button"] = true end
+    visible["search_button"] = true
     if show_browse then visible["browse_button"] = true end
     local slot_map = _buildSlotMap(cfg.order_left, cfg.order_right, visible)
 
@@ -590,10 +593,10 @@ function M.apply(fm_self)
                     or require("device").screen:scaleBySize(11)
 
                 -- Resolve bidi chevron direction once.
-                local ICON_UP = "chevron.left"
+                local ICON_UP = "back.top"
                 pcall(function()
                     local BD = require("ui/bidi")
-                    ICON_UP = BD.mirroredUILayout() and "chevron.right" or "chevron.left"
+                    ICON_UP = BD.mirroredUILayout() and "back.top.rtl" or "back.top"
                 end)
 
                 local up_btn
@@ -699,6 +702,9 @@ function M.apply(fm_self)
                                     _buttonX("left", entry.slot, iw, pad, gap, sw), 0
                                 }
                             end
+
+
+                            --[[
                             if page > 1 then
                                 -- Paginated list: tap goes back one page, hold goes to page 1.
                                 btn.callback      = function()
@@ -714,6 +720,16 @@ function M.apply(fm_self)
                                 end
                                 btn.hold_callback = function() end
                             end
+                            ]]
+
+
+                            -- Кнопка назад всегда возвращает наверх
+                            btn.callback      = function() fc_self:onFolderUp() end
+                            btn.hold_callback = function() end
+
+
+
+
                         end
                         if tb2 then
                             UIManager:setDirty(
@@ -894,6 +910,58 @@ function M.apply(fm_self)
                 end
             end
         end
+    
+
+
+
+
+    else
+        local ok_ib, IconButton = pcall(require, "ui/widget/iconbutton")
+        if ok_ib and IconButton then
+            local s = slot_map["search_button"]
+            if s then
+                local btn_padding = tb.button_padding or require("device").screen:scaleBySize(11)
+                local search_btn = IconButton:new{
+                    icon        = "chevron.left",
+                    width       = iw,
+                    height      = iw,
+                    padding     = btn_padding,
+                    show_parent = tb.show_parent or fm_self,
+                    callback = function()
+                        local fc = fm_self.file_chooser
+                        fc:onPrevPage()
+                    end,
+                    hold_callback = function()
+                        local fc = fm_self.file_chooser
+                        fc:onGotoPage(1)
+                    end,
+                }
+                _resizeAndStrip(search_btn, iw)
+                -- Apply sui_search icon override.
+                do
+                    local _ss = SUIStyle()
+                    if _ss then _ss.applyIconToBtn("sui_search", search_btn) end
+                end
+                search_btn.overlap_align  = nil
+                search_btn.overlap_offset = { _buttonX(s.side, s.slot, iw, pad, gap, sw), 0 }
+                table.insert(tb, search_btn)
+                fm_self._titlebar_search_btn = search_btn
+                fm_self._simpleui_search_x   = _buttonX(s.side, s.slot, iw, pad, gap, sw)
+
+
+                if s.side == "left" then
+                    local up_slot2  = slot_map["up_button"] and slot_map["up_button"].slot or 0
+                    local dslot     = s.slot > up_slot2 and s.slot - 1 or s.slot
+                    local compact_x = _buttonX("left", dslot, iw, pad, gap, sw)
+                    fm_self._simpleui_search_x_compact = compact_x
+                    -- If already at root on first apply, shift to compact position now.
+                    if show_up and _isAtRoot(fm_self.file_chooser) then
+                        search_btn.overlap_offset = { compact_x, 0 }
+                    end
+                end
+            end
+        end
+        
     end
 
     -- Browse button ----------------------------------------------------------
@@ -938,6 +1006,12 @@ function M.apply(fm_self)
                         -- Closes dialog, navigates to mode, and refreshes the icon.
                         local function _navigate(dlg, mode)
                             UIManager:close(dlg)
+
+                            if mode ~= "normal" then 
+                                fc_ref.show_filter.status = nil
+                                fc_ref.show_filter.rating = nil
+                            end
+
                             BM.navigateTo(fm_self, mode)
                             if browse_btn.image then
                                 browse_btn.image.file = _browseIcon(mode)
@@ -986,12 +1060,45 @@ function M.apply(fm_self)
                                     callback = function() _navigate(dlg, "tags")   end 
                                 }},
                                 {{ 
-                                    text = _check("status")   .. _("Filter by status"),
+                                    text_func = function() 
+                                        local selected_statuses = ""
+                                        local check = "  "
+                                        if fc_ref.show_filter.status then
+                                            check = "\u{2713} "
+                                            local status_keys = {}
+                                            local statuses = { "new", "reading", "abandoned", "complete" }
+                                            for i, status in ipairs(statuses) do
+                                                if fc_ref.show_filter.status[status] then 
+                                                    table.insert(status_keys, util.stringLower(BookList.getBookStatusString(status)))
+                                                end
+                                            end
+                                            selected_statuses = ": " .. table.concat(status_keys, ", ")
+                                        end
+
+                                        return check   .. _("Filter by status") .. selected_statuses
+                                    end,
                                     align = "left",   
                                     callback = function() _filter(dlg, "status")   end 
                                 }},
                                 {{ 
-                                    text = _check("rating")   .. _("Filter by rating"),  
+                                    text_func = function() 
+                                        local selected_ratings = ""
+                                        local check = "  "
+                                        if fc_ref.show_filter.rating then
+                                            check = "\u{2713} "
+                                            local rating_keys = {}
+                                            for rating = 0, 5 do
+                                                if fc_ref.show_filter.rating[rating + 1] then 
+                                                    table.insert(rating_keys, tostring(rating))
+                                                end
+                                            end
+                                            selected_ratings = ": " .. table.concat(rating_keys, ", ")
+                                        end
+
+                                        return check   .. _("Filter by rating") .. selected_ratings
+                                    end,
+
+
                                     align = "left", 
                                     callback = function() _filter(dlg, "rating")   end 
                                 }},
@@ -1164,10 +1271,19 @@ function M.applyToInjected(widget)
     local show_back      = M.isItemVisible("inj_back")
     local show_right     = M.isItemVisible("inj_right")
 
+    
+    local show_col = false
+    if widget.name == "collections" then
+        show_col = true
+    end
+
+    
+
     local cfg     = M.getInjConfig()
     local visible = {}
     if show_back  then visible["inj_back"]  = true end
     if show_right then visible["inj_right"] = true end
+    if show_col then visible["inj_col"] = true end
     local slot_map = _buildSlotMap(cfg.order_left, cfg.order_right, visible)
 
     local function placeBtn(id, btn)
@@ -1208,6 +1324,81 @@ function M.applyToInjected(widget)
             rb.hold_callback = function() end
         end
     end
+
+
+
+
+
+
+
+
+
+    if show_col then
+        local ok_ib, IconButton = pcall(require, "ui/widget/iconbutton")
+
+        if ok_ib and IconButton then
+            local s = slot_map["inj_col"]
+    
+            if s then
+                local btn_padding = tb.button_padding
+                    or require("device").screen:scaleBySize(11)
+
+                -- Resolve bidi chevron direction once.
+                local ICON_UP = "back.top"
+
+                local up_btn
+                up_btn = IconButton:new{
+                    icon        = ICON_UP,
+                    width       = iw,
+                    height      = iw,
+                    padding     = btn_padding,
+                    show_parent = tb.show_parent or widget,
+                    callback    = function() 
+                        widget.onReturn()
+                    end,   
+                }
+                _resizeAndStrip(up_btn, iw)
+
+                up_btn.overlap_align  = nil
+                up_btn.overlap_offset = { _buttonX(s.side, s.slot, iw, pad, gap, sw), 0 }
+                table.insert(tb, up_btn)
+                widget._titlebar_up_btn = up_btn
+                widget._simpleui_up_x   = _buttonX(s.side, s.slot, iw, pad, gap, sw)
+
+
+            end -- if s
+        end -- if ok_ib
+    end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 end
 
 function M.restoreInjected(widget)

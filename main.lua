@@ -980,6 +980,7 @@ function SimpleUIPlugin:onSimpleUIGoHomescreen()
         end   
     end
     self:_navigate("homescreen", self.ui, Config.loadTabConfig(), false)
+    UIManager:setDirty(nil, "full")
 end
 
 -- Called when the user triggers the "Go to Library" gesture.

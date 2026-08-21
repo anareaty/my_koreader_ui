@@ -36,6 +36,7 @@ local VerticalGroup   = require("ui/widget/verticalgroup")
 local UIManager       = require("ui/uimanager")
 local lfs             = require("libs/libkoreader-lfs")
 local _ = require("sui_i18n").translate
+local BookList = require("ui/widget/booklist")
 
 local logger = require("logger")
 local _SH    = nil
@@ -558,17 +559,33 @@ end
 
 -- Returns a short display title for a filepath.
 local function _getBookTitle(fp)
-    local title = fp:match("([^/]+)%.[^%.]+$") or fp
+    local file_title = fp:match("([^/]+)%.[^%.]+$") or fp
+    local title = ""
+
+
     pcall(function()
         local DS = require("docsettings")
         local ok2, ds = pcall(DS.open, DS, fp)
+
         if ok2 and ds then
             local rp = ds:readSetting("doc_props") or {}
             if rp.title and rp.title ~= "" then title = rp.title end
             pcall(function() ds:close() end)
         end
     end)
-    if #title > 48 then title = title:sub(1, 45) .. "…" end
+
+    if title == "" then 
+        local BookInfoManager = require("bookinfomanager")
+        local book_info = BookInfoManager:getBookInfo(fp)
+
+        if book_info and book_info.title then
+            title = book_info.title
+        else
+            title = file_title 
+        end
+    end
+
+    --if #title > 48 then title = title:sub(1, 45) .. "…" end
     return title
 end
 

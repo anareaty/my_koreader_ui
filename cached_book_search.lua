@@ -200,7 +200,7 @@ local function addCachedBookSearch(FileSearcher)
                     local is_mac_fork = util.stringStartsWith(filename, "._")
                     if not is_mac_fork and (FileChooser.show_hidden or not is_hidden)
                     and (FileChooser.show_unsupported or DocumentRegistry:hasProvider(fullpath))
-                    and FileChooser:show_file(filename) then
+                    and FileChooser:show_file(filename, fullpath) then
                         table.insert(files, { filename, fullpath, attributes })
                     end
                 end

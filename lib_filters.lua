@@ -22,6 +22,7 @@ function M.showFilterByStatusMenu(fm)
             align = "left",
             callback = function()
                 FileChooser.show_filter.status = nil
+                FileChooser.show_filter.rating = nil
                 fm.file_chooser:refreshPath()
                 UIManager:close(M.status_dialog)
                 M.showFilterByStatusMenu(fm)
@@ -47,6 +48,9 @@ function M.showFilterByStatusMenu(fm)
                 if statuses_nb == 0 or statuses_nb == #statuses then
                     FileChooser.show_filter.status = nil
                 end
+
+                FileChooser.show_filter.rating = nil
+
                 fm.file_chooser:refreshPath()
                 UIManager:close(M.status_dialog)
                 M.showFilterByStatusMenu(fm)
@@ -85,6 +89,12 @@ function M.showFilterByRatingMenu(fm)
             align = "left",
             callback = function()
                 FileChooser.show_filter.rating = nil
+
+                if FileChooser.show_filter.status and not FileChooser.show_filter.status["completed"] then
+                    FileChooser.show_filter.status = nil
+                end
+
+
                 fm.file_chooser:refreshPath()
                 UIManager:close(M.rating_dialog)
                 M.showFilterByRatingMenu(fm)
@@ -110,6 +120,11 @@ function M.showFilterByRatingMenu(fm)
                 if ratings_nb == 0 or ratings_nb == #ratings then
                     FileChooser.show_filter.rating = nil
                 end
+
+                if FileChooser.show_filter.status and not FileChooser.show_filter.status["completed"] then
+                    FileChooser.show_filter.status = nil
+                end
+                
                 fm.file_chooser:refreshPath()
                 UIManager:close(M.rating_dialog)
                 M.showFilterByRatingMenu(fm)
