@@ -257,7 +257,9 @@ end
 local PAD                = UI.PAD
 local MOD_GAP            = UI.MOD_GAP
 local SIDE_PAD           = UI.SIDE_PAD
-local SECTION_LABEL_SIZE = 11
+
+
+local SECTION_LABEL_SIZE = 12 -- Размер подписи модуля на домашнем экране
 -- Static color defaults — overridden at render-time by theme roles when set.
 local _CLR_TEXT_MID_DEFAULT      = Blitbuffer.gray(0.45)
 local _DOT_COLOR_INACTIVE_DEFAULT = Blitbuffer.gray(0.55)
@@ -2984,6 +2986,7 @@ function Homescreen.show(on_qa_tap, on_goal_tap)
     }
     Homescreen._instance = w
     UIManager:show(w)
+    UIManager:setDirty(nil, "full")
 end
 
 function Homescreen.refresh(keep_cache, books_only, stats_only)
@@ -3037,6 +3040,7 @@ local function _rebuildHomescreenLayout()
     hs_inst._navbar_container[1] = overlap
     hs_inst:_updatePage(true)
     UIManager:setDirty(hs_inst, "ui")
+    
 end
 
 function Homescreen.styleGetWallpaper()

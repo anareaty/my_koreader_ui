@@ -34,7 +34,7 @@ local _BASE_RS_CORNER_R = Screen:scaleBySize(12)
 local _BASE_RS_GAP      = Screen:scaleBySize(12)
 local _BASE_RS_CARD_H   = Screen:scaleBySize(96)
 local _BASE_RS_VAL_FS   = Screen:scaleBySize(14)
-local _BASE_RS_LBL_FS   = Screen:scaleBySize(8)
+local _BASE_RS_LBL_FS   = Screen:scaleBySize(10)
 local _BASE_RS_SEP_W    = Screen:scaleBySize(1)
 local _BASE_RS_PH_FS    = Screen:scaleBySize(11)  -- placeholder "No stats" text
 

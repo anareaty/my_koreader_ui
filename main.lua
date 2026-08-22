@@ -791,104 +791,6 @@ function SimpleUIPlugin:init()
 
 
 
-            --[=[
-            UIManager:scheduleIn(0, function()
-                local ok_fm2, FM2 = pcall(require, "apps/filemanager/filemanager")
-                if not (ok_fm2 and FM2 and FM2.instance) then return end
-                local ok_bm, BM = pcall(require, "sui_browsemeta")
-                if not (ok_bm and BM) then return end
-
-                -- Shared factory: returns a button row or nil.
-                -- close_cb is injected by the caller (FM dialog or FS patch).
-                local function _makeAuthorRow(file, is_file, book_props, close_cb)
-                    if not is_file then return nil end
-                    if not BM.isEnabled() then return nil end
-
-                    local authors_raw = book_props and book_props.authors
-                    if not authors_raw or authors_raw == "" then return nil end
-                    -- Multi-author: newline-delimited.  Navigate to the first
-                    -- author only; a picker would be over-engineering for v1.
-                    local author = authors_raw:match("^([^,]+)") or authors_raw
-                    author = author:match("^%s*(.-)%s*$") -- trim whitespace
-
-                    local count = BM.getAuthorBookCount(author) or 1
-                    --if count < 2 then return nil end
-
-                    return {{
-                        text = _("More by author"),
-                        callback = function()
-                            --if close_cb then close_cb() end
-                            local fm2 = FM2.instance
-                            if fm2 then BM.navigateToAuthorLeaf(fm2, author, file) end
-                        end,
-                    }}
-                end
-
-
-
-
-                local function _makeSeriesRow(file, is_file, book_props, close_cb)
-                    if not is_file then return nil end
-                    if not BM.isEnabled() then return nil end
-
-                    local series = book_props and book_props.series
-                    local count = BM.getSeriesBookCount(series) or 1
-                    if count < 2 then return nil end
-
-                    return {{
-                        text = _("More in series"),
-                        callback = function()
-                            if close_cb then close_cb() end
-                            local fm2 = FM2.instance
-                            --if fm2 then BM.navigateToAuthorLeaf(fm2, author, file) end
-                        end,
-                    }}
-                end
-
-
-
-
-                -- 1. Library browser (FileManager.showFileDialog).
-                FM2.instance:addFileDialogButtons("sui_browse_author", function(file, is_file, book_props, close_cb)
-                    local close_nav = close_cb or function()
-                        local fc2 = FM2.instance and FM2.instance.file_chooser
-                        local dlg = fc2 and fc2.file_dialog
-                        if dlg then UIManager:close(dlg) end
-                    end
-                    return _makeAuthorRow(file, is_file, book_props, close_nav)
-                end)
-
-                -- 2. Search results (FileSearcher.onMenuHold).
-                -- The existing TBR monkey-patch on FS.onMenuHold already wraps
-                -- every row_func with a close_cb as the 4th argument, so our
-                -- factory receives it without any further patching needed.
-                local ok_fs2, FS2 = pcall(require, "apps/filemanager/filemanagerfilesearcher")
-                if ok_fs2 and FS2 then
-                    FS2.file_dialog_added_buttons = FS2.file_dialog_added_buttons or { index = {} }
-                    if FS2.file_dialog_added_buttons.index["sui_browse_author"] == nil then
-                        local row_func = function(file, is_file, book_props, close_cb)
-                            return _makeAuthorRow(file, is_file, book_props, close_cb)
-                        end
-                        table.insert(FS2.file_dialog_added_buttons, row_func)
-                        FS2.file_dialog_added_buttons.index["sui_browse_author"] =
-                            #FS2.file_dialog_added_buttons
-                    end
-                end
-            end)
-            ]=]
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -922,6 +824,9 @@ function SimpleUIPlugin:init()
 
 
     if not ok then logger.err("simpleui: init failed:", tostring(err)) end
+
+
+
 end
 
 -- ---------------------------------------------------------------------------
@@ -962,18 +867,6 @@ local _PLUGIN_MODULES = {
 -- When outside the Reader: equivalent to tapping the Homescreen tab.
 function SimpleUIPlugin:onSimpleUIGoHomescreen()
 
-    --[[
-    local RUI = package.loaded["apps/reader/readerui"]
-    if RUI and RUI.instance then
-        Patches.closeReaderToHomescreen(self)
-        return true
-    end
-    local tabs = Config.loadTabConfig()
-    self:_navigate("homescreen", self.ui, tabs, false)
-    return true
-    ]]
-
-
     filemanager = package.loaded["apps/filemanager/filemanager"]
     if self.ui.document then
         if filemanager.instance then
@@ -983,7 +876,7 @@ function SimpleUIPlugin:onSimpleUIGoHomescreen()
         end   
     end
     self:_navigate("homescreen", self.ui, Config.loadTabConfig(), false)
-    UIManager:setDirty(nil, "full")
+    --UIManager:setDirty(nil, "full")
 end
 
 -- Called when the user triggers the "Go to Library" gesture.
@@ -992,17 +885,6 @@ end
 -- were disabled — the FM file browser becomes the top widget.
 -- When outside the Reader: equivalent to tapping the Library tab.
 function SimpleUIPlugin:onSimpleUIGoLibrary()
-    --[[
-    local RUI = package.loaded["apps/reader/readerui"]
-    if RUI and RUI.instance then
-        Patches.closeReaderToLibrary(self)
-        return true
-    end
-    local tabs = Config.loadTabConfig()
-    self:_navigate("home", self.ui, tabs, false)
-    return true
-    ]]
-
 
     local filemanager = package.loaded["apps/filemanager/filemanager"]
     local home = G_reader_settings:readSetting("home_dir") or ""

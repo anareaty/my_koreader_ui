@@ -1459,9 +1459,11 @@ function M.navigate(plugin, action_id, fm_self, tabs, force)
     })
 
 
+    --[[
     if action_id == "homescreen" then
         UIManager:setDirty(nil, "full")
     end
+    ]]
 end
 
 -- ---------------------------------------------------------------------------
