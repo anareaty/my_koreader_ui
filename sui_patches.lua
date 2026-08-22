@@ -2026,7 +2026,6 @@ function M.patchUIManagerShow(plugin)
             end
         end
 
-        UIManager:setDirty(nil, "full")
         return result
     end
 end
@@ -3556,7 +3555,75 @@ end
 
 
 
+function M.patchWidgetsRefresh()
+    -- Полностью обновляем экран когда открываются и закрываются любые виджеты, чтобы избавиться от лишних артефактов
 
+    local InputDialog = require("ui/widget/inputdialog")
+
+    local onShow_InputDialog_orig = InputDialog.onShow
+    function InputDialog:onShow()
+        onShow_InputDialog_orig(self)
+        UIManager:setDirty(nil, "full")
+    end
+
+    local onClose_InputDialog_orig = InputDialog.onClose
+    function InputDialog:onClose()
+        onClose_InputDialog_orig(self)
+        UIManager:setDirty(nil, "full")
+    end
+
+    -- Также нужно обновлять экран когда мы листаем список закладок, потому что там много цветных элементов
+
+    local BookmarkBrowser = require("ui/widget/bookmarkbrowser")
+
+    local show_orig = BookmarkBrowser.show
+    function BookmarkBrowser:show(files, ui)
+        show_orig(self, files, ui)
+
+        local menu = self.bm_list
+
+        local onGotoPage_orig = menu.onGotoPage
+        menu.onGotoPage = function(menu_self, page)
+            onGotoPage_orig(menu_self, page)
+            UIManager:setDirty(nil, "full")
+            return true
+        end
+
+        local close_callback_orig = menu.close_callback
+        menu.close_callback = function(menu_self)
+            close_callback_orig(menu_self)
+            UIManager:setDirty(nil, "full")
+        end
+
+        UIManager:setDirty(nil, "full")
+    end
+
+
+
+    local ReaderBookmark = require("apps/reader/modules/readerbookmark")
+
+    local onShowBookmark_orig = ReaderBookmark.onShowBookmark
+    function ReaderBookmark:onShowBookmark()
+        onShowBookmark_orig(self)
+        
+        local menu = self.bookmark_menu[1]
+
+        local onGotoPage_orig = menu.onGotoPage
+        menu.onGotoPage = function(menu_self, page)
+            onGotoPage_orig(menu_self, page)
+            UIManager:setDirty(nil, "full")
+            return true
+        end
+
+        local close_callback_orig = menu.close_callback
+        menu.close_callback = function(menu_self)
+            close_callback_orig(menu_self)
+            UIManager:setDirty(nil, "full")
+        end
+
+    end
+    
+end
 
 
 
@@ -3573,7 +3640,7 @@ function M.installAll(plugin)
     M.patchFullscreenWidgets(plugin)
     M.patchUIManagerShow(plugin)
     M.patchUIManagerClose(plugin)
-    --M.patchWidgetsRefresh()
+    M.patchWidgetsRefresh()
     M.patchMenuInitForPagination(plugin)
     M.patchMenuForNavpager(plugin)
     M.patchBookInfoNavigation(plugin)
