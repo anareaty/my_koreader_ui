@@ -860,6 +860,18 @@ function M.patchHistory(plugin)
         local BookHoldDialog = require("desktop_modules/book_hold_dialog")
         BookHoldDialog:openDialog(file, ctx)
     end
+
+
+    -- Убрать цифры из заголовка
+
+    local getBookListTitleHistory_orig = FMHist.getBookListTitle
+
+    FMHist.getBookListTitle = function(fmh_self, item_table)
+        local title, subtitle = getBookListTitleHistory_orig(fmh_self, item_table)
+        title = _("History")
+        return title, subtitle
+    end
+
 end
 
 
@@ -883,9 +895,13 @@ function M.patchFileSearcher(plugin)
         BookHoldDialog:openDialog(file, ctx)
     end
 
+
+
+
+    -- Добавить поиск по кэшированным книгам
+
     local ok, addCachedBookSearch = pcall(require, "cached_book_search")
     if not (ok and addCachedBookSearch) then return end
-
     addCachedBookSearch(FMFS)
 end
 
@@ -1245,76 +1261,12 @@ function M.patchCollections(plugin)
     end
 
 
-    --[[
-    local updateItemTable_orig = FMColl.updateItemTable
 
-    FMColl.updateItemTable = function(fmc_self, item_table, focused_file)
-
-        updateItemTable_orig(fmc_self, item_table, focused_file)
-
-        for i, item in pairs(fmc_self.booklist_menu.item_table) do
-            item.text = "ggg"
-        end
-
-        
-        if item_table == nil then
-            item_table = {}
-            for _, item in pairs(RC.coll[fmc_self.booklist_menu.path]) do
-                if fmc_self:isItemMatch(item) then
-
-
-                    
-                    local title = item.text
-                    local book_info = BookInfoManager:getBookInfo(item.file)
-                    if book_info and book_info.title then
-                        title = book_info.title
-                    end
-                    
-
-                    item.text = "title"
-
-                    
-
-                    local item_tmp = {
-                        file      = item.file,
-                        text      = item.text,
-                        order     = item.order,
-                        attr      = item.attr,
-                        mandatory = fmc_self.mandatory_func and fmc_self.mandatory_func(item) or util.getFriendlySize(item.attr.size or 0),
-                    }
-                    if fmc_self.item_func then
-                        fmc_self.item_func(item_tmp, fmc_self.ui)
-                    end
-                    table.insert(item_table, item_tmp)
-                end
-            end
-            if #item_table > 1 then
-                table.sort(item_table, fmc_self.sorting_func)
-            end
-        end
-
-        --for i, item in pairs
-        local title, subtitle = fmc_self:getBookListTitle(item_table)
-        fmc_self.booklist_menu:switchItemTable(title, item_table, -1, focused_file and { file = focused_file }, subtitle)
-        
-    end
-
-    ]]
-
-
+    -- Показывать названия книг вместо имен файлов при сортировке коллекции
 
     FMColl.showArrangeBooksDialog = function(fmc_self)
 
         local BookList = package.loaded["ui/widget/booklist"]
-
-        --[[
-        doc_settings_or_file = BookList.getDocSettings(fullpath)
-        local summary = doc_settings_or_file:readSetting("summary") or {}
-        local rating = summary.rating or 0
-        rating = rating + 1
-        ]]
-
-
         local collection_name = fmc_self.booklist_menu.path
         local coll_settings = RC.coll_settings[collection_name]
         local curr_collate_id = coll_settings.collate
@@ -1488,8 +1440,16 @@ function M.patchCollections(plugin)
 
 
 
-    
-    
+    -- Убрать цифры из заголовка
+
+    local getBookListTitleCollection_orig = FMColl.getBookListTitle
+
+    FMColl.getBookListTitle = function(fmc_self, item_table)
+        local title, subtitle = getBookListTitleCollection_orig(fmc_self, item_table)
+        local coll_name = fmc_self.booklist_menu.path
+        title = fmc_self:getCollectionTitle(coll_name)
+        return title, subtitle
+    end
 
 
 
