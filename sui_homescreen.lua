@@ -2381,6 +2381,228 @@ function HomescreenWidget:_updatePage(keep_cache, books_only, stats_only)
     end
 end
 
+
+
+
+
+
+
+
+-- Патч для ширины колонки. 
+-- Потом надо будет переписать, чтобы интегрировать этот код в оригинальную
+-- функцию, но пока оставлю так
+
+
+
+
+local orig_updatePage = HomescreenWidget._updatePage
+
+HomescreenWidget._updatePage = function(self, keep_cache, books_only)
+    local Screen = require("device").screen
+    if Screen:getWidth() > Screen:getHeight() then return orig_updatePage(self, keep_cache, books_only) end
+
+    _G.BENTO_MOD_SCALES = _G.BENTO_MOD_SCALES or {}
+    local gap = 15
+    local inner_w = self._layout_inner_w or (Screen:getWidth() - 40)
+    
+    local modules_built = 0
+    local orig_builds = {}
+    local modules = Registry.list and Registry.list() or {}
+    
+    if _G.G_reader_settings then
+        for _, mod in ipairs(modules) do
+            local w_val = _G.G_reader_settings:readSetting("simpleui_bento_width_" .. mod.id)
+            _G.BENTO_MOD_SCALES[mod.id] = w_val and (w_val / 100.0) or 1.0
+        end
+    end
+    
+    for _, mod in ipairs(modules) do
+        if type(mod.build) == "function" then
+            local m_id = mod.id
+            local m_orig = mod.build
+            orig_builds[m_id] = m_orig
+            
+            mod.build = function(w, ctx)
+                _G.BENTO_ACTIVE_MOD_ID = m_id
+                local pct = _G.BENTO_MOD_SCALES[m_id] or 1.0
+                local bw = (pct < 1.0) and math.floor((w * pct) - (gap / 2)) - 2 or w
+                return m_orig(bw, ctx)
+            end
+        end
+    end
+
+    local orig_makeModWrapper = self._makeModWrapper
+    self._makeModWrapper = function(this, mod, widget, w)
+        modules_built = modules_built + 1
+        local m_id = mod.id or _G.BENTO_ACTIVE_MOD_ID
+        local pct = _G.BENTO_MOD_SCALES[m_id] or 1.0
+        local bw = (pct < 1.0) and math.floor((w * pct) - (gap / 2)) - 2 or w
+        
+        local wrapped = orig_makeModWrapper(this, mod, widget, bw)
+        if wrapped and type(wrapped) == "table" then
+            wrapped._bento_mod_id = m_id
+            wrapped._bento_bw = bw
+            
+            -- Update the internal dimension table so touch hitboxes and long-press highlights match the scaled width
+            if wrapped.dimen then wrapped.dimen.w = bw end
+        end
+        return wrapped
+    end
+
+    local ok, err = pcall(orig_updatePage, self, keep_cache, books_only)
+
+    for _, mod in ipairs(modules) do
+        if orig_builds[mod.id] then mod.build = orig_builds[mod.id] end
+    end
+    self._makeModWrapper = orig_makeModWrapper
+
+    if not ok then return end
+    if modules_built == 0 then return end
+
+    local FrameContainer = require("ui/widget/container/framecontainer")
+    local TextWidget = require("ui/widget/textwidget")
+    local ui_pad = 20
+    pcall(function() ui_pad = require("sui_core").PAD * 2 end)
+
+    local children = {}
+    for i = 1, #self._body do
+        children[i] = self._body[i]
+        self._body[i] = nil
+    end
+
+    local chunks = {}
+    local pre_build_widgets = {}
+    local post_build_widgets = {}
+    local pending_untagged = {}
+
+    for i, w in ipairs(children) do
+        if type(w) == "table" and w._bento_mod_id then
+            local chunk = { mod_id = w._bento_mod_id, widgets = {} }
+            for _, uw in ipairs(pending_untagged) do table.insert(chunk.widgets, uw) end
+            pending_untagged = {}
+            table.insert(chunk.widgets, w)
+            table.insert(chunks, chunk)
+        else
+            if #chunks == 0 and i == 1 then
+                table.insert(pre_build_widgets, w)
+            else
+                table.insert(pending_untagged, w)
+            end
+        end
+    end
+    for _, uw in ipairs(pending_untagged) do table.insert(post_build_widgets, uw) end
+
+    for _, w in ipairs(pre_build_widgets) do self._body[#self._body + 1] = w end
+    
+    local HorizontalGroup = require("ui/widget/horizontalgroup")
+    local VerticalGroup = require("ui/widget/verticalgroup")
+    local HorizontalSpan = require("ui/widget/horizontalspan")
+
+    local current_row_cols = {}
+    local current_row_width = 0
+
+    local function flush_row()
+        if #current_row_cols == 0 then return end
+        
+        -- Make the row container transparent so the homescreen background remains visible
+        local h_group = HorizontalGroup:new{ align = "top", background = nil }
+        for i, col in ipairs(current_row_cols) do
+            
+            -- Make the column container transparent
+            local v_group = VerticalGroup:new{ align = "left", background = nil }
+            for _, chunk in ipairs(col.chunks) do
+                for _, w in ipairs(chunk.widgets) do
+                    
+                    local pct = _G.BENTO_MOD_SCALES[chunk.mod_id] or 1.0
+                    if pct < 1.0 and type(w) == "table" and w.is_a and w:is_a(FrameContainer) and w[1] and w[1].is_a and w[1]:is_a(TextWidget) then
+                        local bw = w._bento_bw or (math.floor((inner_w * pct) - (gap / 2)) - 2)
+                        w.width = bw
+                        w[1].width = bw - ui_pad
+                        w[1].max_width = bw - ui_pad 
+                    end
+
+                    v_group[#v_group + 1] = w 
+                    
+                    if type(w) == "table" and w._bento_mod_id == "clock" then 
+                        self._clock_body_ref = v_group
+                        self._clock_body_idx = #v_group 
+                    end
+                    if type(w) == "table" and w._bento_mod_id == "header" then 
+                        self._header_body_ref = v_group
+                        self._header_body_idx = #v_group 
+                    end
+                end
+            end
+            h_group[#h_group + 1] = v_group
+            if i < #current_row_cols then h_group[#h_group + 1] = HorizontalSpan:new{ width = gap } end
+        end
+        self._body[#self._body + 1] = h_group
+        current_row_cols = {}
+        current_row_width = 0
+    end
+
+    for _, chunk in ipairs(chunks) do
+        local pct = _G.BENTO_MOD_SCALES[chunk.mod_id] or 1.0
+        
+        if pct >= 1.0 then
+            flush_row()
+            for _, w in ipairs(chunk.widgets) do 
+                self._body[#self._body + 1] = w 
+                if type(w) == "table" and w._bento_mod_id == "clock" then 
+                    self._clock_body_ref = self._body
+                    self._clock_body_idx = #self._body 
+                end
+                if type(w) == "table" and w._bento_mod_id == "header" then 
+                    self._header_body_ref = self._body
+                    self._header_body_idx = #self._body 
+                end
+            end
+        else
+            if current_row_width + pct <= 1.01 then
+                table.insert(current_row_cols, { width = pct, chunks = { chunk } })
+                current_row_width = current_row_width + pct
+            else
+                local stacked = false
+                for _, col in ipairs(current_row_cols) do
+                    if math.abs(col.width - pct) < 0.01 then
+                        table.insert(col.chunks, chunk)
+                        stacked = true
+                        break
+                    end
+                end
+                
+                if not stacked then
+                    flush_row()
+                    table.insert(current_row_cols, { width = pct, chunks = { chunk } })
+                    current_row_width = pct
+                end
+            end
+        end
+    end
+    
+    flush_row()
+    for _, w in ipairs(post_build_widgets) do self._body[#self._body + 1] = w end
+end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 -- ---------------------------------------------------------------------------
 -- _refresh — debounced rebuild. Page turns call _updatePage directly.
 -- ---------------------------------------------------------------------------

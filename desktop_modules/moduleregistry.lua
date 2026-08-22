@@ -120,7 +120,60 @@ end
 local Registry = {}
 
 function Registry.list()
-    _load(); return _loaded
+    _load();
+    
+    -- Добавить меню для изменения ширины модуля
+    
+    if not Registry._bento_menu_patched then 
+        for _, mod in ipairs(_loaded) do
+            if type(mod.getMenuItems) == "function" and not mod._bento_menu_patched then
+                local orig_getMenuItems = mod.getMenuItems
+                
+                mod.getMenuItems = function(ctx_menu)
+                    local items = orig_getMenuItems(ctx_menu)
+                    if type(items) == "table" then
+                        table.insert(items, {
+                            text_func = function()
+                                local cur_val = _G.G_reader_settings:readSetting("simpleui_bento_width_" .. mod.id) or 100
+                                return "Bento Grid Column Width (" .. cur_val .. "%)"
+                            end,
+                            keep_menu_open = true,
+                            separator = true,
+                            callback = function()
+                                local UIManager  = original_require("ui/uimanager")
+                                local SpinWidget = original_require("ui/widget/spinwidget")
+                                local cur_val = _G.G_reader_settings:readSetting("simpleui_bento_width_" .. mod.id) or 100
+                                
+                                UIManager:show(SpinWidget:new{
+                                    title_text    = "Bento Grid Column Width",
+                                    info_text     = "Set the layout width for the Bento Grid.\n(e.g., 50 = 50% width, 100 = full row)",
+                                    value         = cur_val,
+                                    value_min     = 20,
+                                    value_max     = 100,
+                                    value_step    = 5,
+                                    unit          = "%",
+                                    ok_text       = "Apply",
+                                    cancel_text   = "Cancel",
+                                    default_value = 100,
+                                    callback      = function(spin)
+                                        _G.G_reader_settings:saveSetting("simpleui_bento_width_" .. mod.id, spin.value)
+                                        if ctx_menu.refresh then ctx_menu.refresh() end
+                                    end,
+                                })
+                            end,
+                        })
+                    end
+                    return items
+                end
+                mod._bento_menu_patched = true
+            end
+        end
+    end
+    
+    
+    Registry._bento_menu_patched = true
+    
+    return _loaded
 end
 
 function Registry.get(id)
