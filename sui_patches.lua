@@ -872,6 +872,17 @@ function M.patchHistory(plugin)
         return title, subtitle
     end
 
+
+
+
+    -- Патч меню
+
+    local ok, patchHistoryMenu = pcall(require, "history_menu")
+    if ok and patchHistoryMenu then 
+        patchHistoryMenu(FMHist)
+    end
+    
+
 end
 
 
@@ -901,8 +912,10 @@ function M.patchFileSearcher(plugin)
     -- Добавить поиск по кэшированным книгам
 
     local ok, addCachedBookSearch = pcall(require, "cached_book_search")
-    if not (ok and addCachedBookSearch) then return end
-    addCachedBookSearch(FMFS)
+    if ok and addCachedBookSearch then 
+        addCachedBookSearch(FMFS) 
+    end
+    
 end
 
 
@@ -1453,6 +1466,13 @@ function M.patchCollections(plugin)
 
 
 
+    -- Патч меню
+
+    local ok, patchCollectionMenu = pcall(require, "collection_menu")
+    if ok and patchCollectionMenu then 
+        patchCollectionMenu(FMColl)
+    end
+    
 
 
 
