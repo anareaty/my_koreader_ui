@@ -856,6 +856,7 @@ function M.apply(fm_self)
                             local is_sub = _resolveIsSub(fc_self)
                             _applyBackButtonState(fc_self, is_sub, page)
                             if not ok then error(result) end
+
                             return result
                         end
                     end

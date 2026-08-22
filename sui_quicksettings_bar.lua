@@ -1006,6 +1006,9 @@ function QSBar.install()
         injectPanelTab(m_self)
     end
 
+    -- Всегда открывать первую вкладку меню независимо от позиции свайпа
+    FMMenu._getTabIndexFromLocation = function(self, ges) return 1 end
+
     -- 3. Patch ReaderMenu:onShowMenu to inject the panel tab inside the reader.
     --
     --    We cannot mirror step 2 and patch setUpdateItemTable, because
@@ -1020,13 +1023,16 @@ function QSBar.install()
 
         local orig_show_menu = RMenu.onShowMenu
         RMenu.onShowMenu = function(m_self, ...)
-            -- tab_item_table is built (or already cached) at this point;
-            -- inject our panel tab before the TouchMenu is created.
-            if m_self.tab_item_table then
-                injectPanelTab(m_self)
+            -- Setup item table if not ready yet (happens the first time menu is opened)
+            if m_self.tab_item_table == nil then
+                m_self:setUpdateItemTable()
             end
+            injectPanelTab(m_self)
             return orig_show_menu(m_self, ...)
         end
+
+        -- Всегда открывать первую вкладку меню независимо от позиции свайпа
+        RMenu._getTabIndexFromLocation = function(self, ges) return 1 end
     end
 end
 

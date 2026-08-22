@@ -2002,6 +2002,8 @@ function M.patchUIManagerShow(plugin)
                 end
             end
         end
+
+        UIManager:setDirty(nil, "full")
         return result
     end
 end

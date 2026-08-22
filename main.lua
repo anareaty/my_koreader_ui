@@ -593,6 +593,8 @@ function SimpleUIPlugin:init()
         -- This removes sui_menu (and its lfs + IconWidget introspection) from
         -- the critical startup path.
         -- -------------------------------------------------------------------
+        
+        --[[
         do
             -- Pre-bootstrap buildTabItems: installed now so setUpdateItemTable
             -- always finds a callable.  On first call it loads sui_menu (which
@@ -658,6 +660,7 @@ function SimpleUIPlugin:init()
             local ok_fm, FileManagerMenu = pcall(require, "apps/filemanager/filemanagermenu")
             if ok_fm and FileManagerMenu then inject_sui_tab(FileManagerMenu) end
         end
+        ]]
         -- -------------------------------------------------------------------
         if SUISettings:nilOrTrue("simpleui_enabled") then
             Patches.installAll(self)
