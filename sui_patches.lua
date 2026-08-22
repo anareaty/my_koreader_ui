@@ -15,6 +15,9 @@ local SUISettings = require("sui_store")
 local Size = require("ui/size")
 local util = require("util")
 local BookInfoManager = require("bookinfomanager")
+local Input = require("device/input")
+local InfoMessage = require("ui/widget/infomessage") -- Добавлен для сообщения об ошибке
+
 
 -- Lazy: only needed on D-pad devices, inside gesture event handlers.
 local _FocusManager
@@ -840,6 +843,46 @@ function M.patchBookList(plugin)
         end
         return orig_bl_new(class, attrs, ...)
     end
+
+
+
+    -- Не отмечать книги без статуса как читаемые
+
+    BookList.setBookInfoCache = function(file, doc_settings)
+        local book_info = {
+            been_opened      = true,
+            status           = nil,
+            pages            = nil,
+            has_annotations  = nil,
+            percent_finished = doc_settings:readSetting("percent_finished"),
+        }
+        local summary = doc_settings:readSetting("summary")
+        book_info.status = summary and summary.status
+        if BookList.getBookStatusString(book_info.status) == nil then
+            book_info.status = "new"
+        end
+        local pages = doc_settings:isTrue("pagemap_use_page_labels")
+            and doc_settings:readSetting("pagemap_doc_pages")
+            or doc_settings:readSetting("doc_pages")
+        if pages == nil then
+            local stats = doc_settings:readSetting("stats")
+            if stats and stats.pages and stats.pages ~= 0 then 
+                pages = stats.pages
+            end
+        end
+        book_info.pages = pages
+        local annotations = doc_settings:readSetting("annotations")
+        if annotations then
+            book_info.has_annotations = #annotations > 0
+        else
+            local highlight = doc_settings:readSetting("highlight")
+            book_info.has_annotations = highlight and next(highlight) and true
+        end
+        BookList.book_info_cache[file] = book_info
+    end
+
+
+
 end
 
 
@@ -2789,6 +2832,32 @@ end
 -- Reader-close helpers for gesture actions
 -- ---------------------------------------------------------------------------
 
+
+-- Убрать сообщение при открытии книги
+
+function M.disableBookOpenMessage(plugin)
+    local RUI = package.loaded["apps/reader/readerui"]
+
+    RUI.showReaderCoroutine = function(self, file, provider, seamless)
+        local co = coroutine.create(function()
+            self:doShowReader(file, provider, true) 
+        end)
+        
+        local ok, err = coroutine.resume(co)
+        if err ~= nil or ok == false then
+            io.stderr:write('[!] doShowReader coroutine crashed:\n')
+            io.stderr:write(debug.traceback(co, err, 1))
+            Device:setIgnoreInput(false)
+            Input:inhibitInputUntil(0.2)
+            UIManager:show(InfoMessage:new{
+                text = "Error loading document",
+            })
+        end
+    end
+end
+
+
+
 -- Close the reader and open the Homescreen afterwards, exactly as if
 -- "Start with Homescreen" were active, regardless of the actual setting.
 -- Safe to call when the reader is NOT open (no-op in that case).
@@ -3508,6 +3577,11 @@ function M.installAll(plugin)
     M.patchMenuInitForPagination(plugin)
     M.patchMenuForNavpager(plugin)
     M.patchBookInfoNavigation(plugin)
+    M.disableBookOpenMessage(plugin)
+
+    local patchListMenuItem = require("list_item")
+    patchListMenuItem()
+    
     -- Install the FM tab icon patch so system icon overrides survive menu rebuilds.
     local ok_ss, SUIStyle = pcall(require, "sui_style")
     if ok_ss and SUIStyle then
